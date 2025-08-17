@@ -437,7 +437,7 @@ export function StreamWeaverPlayer({
                   </TabsList>
                 </div>
                 <TabsContent value="dashboard" className="flex-1 m-0">
-                  <ChannelDashboard channels={processedChannels} onSelectChannel={handleSelectChannel} allChannels={channels} recents={recents} />
+                  <ChannelDashboard channels={processedChannels} onSelectChannel={handleSelectChannel} allChannels={channels} recents={recents} isClient={isClient}/>
                 </TabsContent>
                 <TabsContent value="epg" className="flex-1 m-0">
                   <EpgView channels={channels} />
@@ -727,7 +727,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   );
 }
 
-function ChannelDashboard({ channels, onSelectChannel, allChannels, recents }: { channels: Channel[], onSelectChannel: (channel: Channel) => void, allChannels: Channel[], recents: string[] }) {
+function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isClient }: { channels: Channel[], onSelectChannel: (channel: Channel) => void, allChannels: Channel[], recents: string[], isClient: boolean }) {
   const recentlyWatchedChannels = React.useMemo(() => {
     return recents.map(url => allChannels.find(c => c.url === url)).filter((c): c is Channel => !!c);
   }, [allChannels, recents]);
@@ -757,7 +757,7 @@ function ChannelDashboard({ channels, onSelectChannel, allChannels, recents }: {
     <div className='w-full h-full bg-background'>
       <ScrollArea className="h-full">
         <div className="p-4 space-y-8">
-            {recentlyWatchedChannels.length > 0 && (
+            {isClient && recentlyWatchedChannels.length > 0 && (
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">Recently Watched</h2>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
@@ -902,3 +902,5 @@ function EpgView({ channels }: { channels: Channel[] }) {
       </div>
   );
 }
+
+    
