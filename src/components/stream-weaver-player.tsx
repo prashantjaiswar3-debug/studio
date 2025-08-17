@@ -14,14 +14,12 @@ import {
   Pause,
   Play,
   Search,
-  Shield,
-  ShieldAlert,
   Upload,
   Volume2,
   VolumeX,
-  X,
   ArrowDownAZ,
-  ArrowUpAZ,
+  Star,
+  Tv,
 } from 'lucide-react';
 import Image from 'next/image';
 import * as React from 'react';
@@ -37,7 +35,6 @@ import {
   SidebarTrigger,
 } from './ui/sidebar';
 import { Slider } from './ui/slider';
-import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Separator } from './ui/separator';
 import {
   DropdownMenu,
@@ -49,8 +46,18 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { Card, CardContent } from './ui/card';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 type SortOption = 'default' | 'name-asc' | 'name-desc';
+type ViewMode = 'dashboard' | 'epg';
 
 interface StreamWeaverPlayerProps {
   initialChannels: Channel[];
@@ -69,6 +76,9 @@ export function StreamWeaverPlayer({
   const [isLoading, setIsLoading] = React.useState(false);
   const [filter, setFilter] = React.useState('');
   const [sort, setSort] = React.useState<SortOption>('default');
+  const [favorites, setFavorites] = useLocalStorage<string[]>('favorites', []);
+  const [category, setCategory] = React.useState('all');
+  const [viewMode, setViewMode] = React.useState<ViewMode>('dashboard');
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -133,9 +143,29 @@ export function StreamWeaverPlayer({
     }
     setIsLoading(false);
   };
+  
+  const toggleFavorite = (channelUrl: string) => {
+    setFavorites(prev => 
+      prev.includes(channelUrl) 
+        ? prev.filter(url => url !== channelUrl)
+        : [...prev, channelUrl]
+    );
+  };
+
+  const categories = React.useMemo(() => {
+    const groups = new Set(channels.map(c => c.group).filter(Boolean) as string[]);
+    return ['all', 'favorites', ...Array.from(groups).sort()];
+  }, [channels]);
 
   const processedChannels = React.useMemo(() => {
     let processed = [...channels];
+    
+    if (category === 'favorites') {
+      processed = processed.filter(c => favorites.includes(c.url));
+    } else if (category !== 'all') {
+      processed = processed.filter(c => c.group === category);
+    }
+
     if (filter) {
       processed = processed.filter(
         (c) =>
@@ -143,13 +173,15 @@ export function StreamWeaverPlayer({
           c.group?.toLowerCase().includes(filter.toLowerCase())
       );
     }
+    
     if (sort === 'name-asc') {
       processed.sort((a, b) => a.name.localeCompare(b.name));
     } else if (sort === 'name-desc') {
       processed.sort((a, b) => b.name.localeCompare(a.name));
     }
+
     return processed;
-  }, [channels, filter, sort]);
+  }, [channels, filter, sort, category, favorites]);
 
   return (
     <SidebarProvider>
@@ -200,28 +232,44 @@ export function StreamWeaverPlayer({
             </div>
           </div>
           <Separator className="my-2 group-data-[collapsible=icon]:hidden" />
-          <div className="relative p-2 group-data-[collapsible=icon]:hidden flex items-center gap-2">
+          
+          <div className="p-2 space-y-2 group-data-[collapsible=icon]:hidden">
             <div className='relative flex-grow'>
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Filter channels..." className="pl-8" value={filter} onChange={(e) => setFilter(e.target.value)} />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <ArrowDownAZ className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuRadioGroup value={sort} onValueChange={(value) => setSort(value as SortOption)}>
-                  <DropdownMenuRadioItem value="default">Default</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="name-asc">Name (A-Z)</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="name-desc">Name (Z-A)</DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2">
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="w-full capitalize">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat} value={cat} className="capitalize">
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="shrink-0">
+                    <ArrowDownAZ className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup value={sort} onValueChange={(value) => setSort(value as SortOption)}>
+                    <DropdownMenuRadioItem value="default">Default</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="name-asc">Name (A-Z)</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="name-desc">Name (Z-A)</DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
+
           <ScrollArea className="flex-1 group-data-[collapsible=icon]:hidden">
             <div className="p-2 space-y-1">
               {isLoading ? (
@@ -234,7 +282,7 @@ export function StreamWeaverPlayer({
                     key={`${channel.url}-${index}`}
                     onClick={() => setSelectedChannel(channel)}
                     className={cn(
-                      'w-full text-left p-2 rounded-md flex items-center gap-3 transition-colors text-sm',
+                      'w-full text-left p-2 rounded-md flex items-center gap-3 transition-colors text-sm group/item',
                       selectedChannel?.url === channel.url
                         ? 'bg-primary text-primary-foreground'
                         : 'hover:bg-sidebar-accent'
@@ -246,9 +294,23 @@ export function StreamWeaverPlayer({
                       width={40}
                       height={40}
                       className="rounded-md bg-muted object-cover h-10 w-10"
-                      unoptimized // For external SVGs or logos
+                      unoptimized
                     />
                     <span className="flex-1 truncate font-medium">{channel.name}</span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className={cn(
+                        'h-8 w-8 shrink-0 transition-opacity group-hover/item:opacity-100',
+                        favorites.includes(channel.url) ? 'opacity-100' : 'opacity-0'
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(channel.url);
+                      }}
+                    >
+                      <Star className={cn('h-5 w-5', favorites.includes(channel.url) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
+                    </Button>
                   </button>
                 ))
               ) : (
@@ -268,12 +330,34 @@ export function StreamWeaverPlayer({
               </h2>
               {selectedChannel?.group && <p className="text-xs text-muted-foreground">{selectedChannel.group}</p>}
             </div>
+            {selectedChannel && (
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => toggleFavorite(selectedChannel.url)}
+                >
+                  <Star className={cn('h-6 w-6', favorites.includes(selectedChannel.url) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
+                </Button>
+            )}
           </header>
-          <main className="flex-1 flex items-center justify-center bg-black">
+          <main className="flex-1 flex flex-col bg-black">
             {selectedChannel ? (
               <VideoPlayer key={selectedChannel.url} channel={selectedChannel} />
             ) : (
-              <ChannelDashboard channels={processedChannels} onSelectChannel={setSelectedChannel} />
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)} className="w-full flex-1 flex flex-col">
+                <div className="p-2 bg-background border-b">
+                  <TabsList className="grid w-full grid-cols-2 max-w-sm mx-auto">
+                    <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+                    <TabsTrigger value="epg">EPG</TabsTrigger>
+                  </TabsList>
+                </div>
+                <TabsContent value="dashboard" className="flex-1 m-0">
+                  <ChannelDashboard channels={processedChannels} onSelectChannel={setSelectedChannel} />
+                </TabsContent>
+                <TabsContent value="epg" className="flex-1 m-0">
+                  <EpgView />
+                </TabsContent>
+              </Tabs>
             )}
           </main>
         </div>
@@ -306,20 +390,17 @@ function VideoPlayer({ channel }: { channel: Channel }) {
 
     const loadVideo = async () => {
         try {
-            // HLS support check
             if (channel.url.includes('.m3u8')) {
-                // Native HLS support is limited. For broader compatibility, a library like HLS.js is needed.
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                   video.src = channel.url;
                 } else {
                   console.warn("HLS playback not supported by this browser without a library like HLS.js.");
-                  // Here you would typically load HLS.js if it's included in the project
-                  // For now, we'll just set the src and let the browser handle it.
                    video.src = channel.url;
                 }
             } else {
               video.src = channel.url;
             }
+            // Autoplay can be blocked by the browser, so we handle the promise rejection.
             await video.play();
         } catch(e) {
              console.error("Autoplay was prevented:", e);
@@ -333,7 +414,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     const onTimeUpdate = () => {
-        if(video.duration) {
+        if(video.duration && isFinite(video.duration)) {
             setProgress((video.currentTime / video.duration) * 100);
         } else {
             setProgress(0); // Live stream
@@ -397,7 +478,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     }
   };
    const seek = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    if (!videoRef.current || !videoRef.current.duration) return; // Cannot seek on live streams
+    if (!videoRef.current || !videoRef.current.duration || !isFinite(videoRef.current.duration)) return; // Cannot seek on live streams
     const rect = e.currentTarget.getBoundingClientRect();
     const seekTime = ((e.clientX - rect.left) / rect.width) * videoRef.current.duration;
     videoRef.current.currentTime = seekTime;
@@ -409,10 +490,11 @@ function VideoPlayer({ channel }: { channel: Channel }) {
 
       <div className={cn("absolute inset-0 bg-black/20 transition-opacity", showControls ? "opacity-100" : "opacity-0", "group-hover/player:opacity-100")}>
         <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col gap-2">
-            { videoRef.current?.duration &&
-              <div className="w-full cursor-pointer" onClick={seek}>
-                  <div className="w-full bg-white/20 h-1 rounded-full">
+            { videoRef.current?.duration && isFinite(videoRef.current.duration) &&
+              <div className="w-full cursor-pointer group/progress" onClick={seek}>
+                  <div className="w-full bg-white/20 h-1 rounded-full relative">
                     <div className="bg-primary h-1 rounded-full" style={{ width: `${progress}%` }}></div>
+                    <div className="absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-primary opacity-0 group-hover/progress:opacity-100 transition-opacity" style={{ left: `${progress}%` }}></div>
                   </div>
               </div>
             }
@@ -447,7 +529,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
 function ChannelDashboard({ channels, onSelectChannel }: { channels: Channel[], onSelectChannel: (channel: Channel) => void }) {
   if (channels.length === 0) {
     return (
-        <div className="text-center text-muted-foreground">
+        <div className="text-center text-muted-foreground h-full flex flex-col items-center justify-center">
           <Clapperboard size={64} className="mx-auto text-primary" />
           <h2 className="mt-4 text-2xl font-bold text-foreground">No channels to display</h2>
           <p className="mt-2">Load a playlist or adjust your filter.</p>
@@ -487,13 +569,14 @@ function ChannelDashboard({ channels, onSelectChannel }: { channels: Channel[], 
   );
 }
 
-function WelcomeScreen() {
+function EpgView() {
   return (
-    <div className="text-center text-muted-foreground">
-      <Clapperboard size={64} className="mx-auto text-primary" />
-      <h2 className="mt-4 text-2xl font-bold text-foreground">Welcome to StreamWeaver</h2>
-      <p className="mt-2">Select a channel from the list to start watching.</p>
-      <p>Load a new playlist using the options in the sidebar.</p>
+    <div className="text-center text-muted-foreground h-full flex flex-col items-center justify-center">
+      <Tv size={64} className="mx-auto text-primary" />
+      <h2 className="mt-4 text-2xl font-bold text-foreground">EPG View Not Available</h2>
+      <p className="mt-2 max-w-md mx-auto">
+        Full EPG functionality requires an XMLTV data source, which is not yet implemented.
+      </p>
     </div>
   );
 }
