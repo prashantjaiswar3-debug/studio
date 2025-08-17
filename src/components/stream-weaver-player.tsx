@@ -208,20 +208,6 @@ export function StreamWeaverPlayer({
                       unoptimized // For external SVGs or logos
                     />
                     <span className="flex-1 truncate font-medium">{channel.name}</span>
-                     {channel.safety && (
-                        <Tooltip>
-                          <TooltipTrigger>
-                            {channel.safety.isSafe ? (
-                              <Shield className="h-5 w-5 text-green-500" />
-                            ) : (
-                              <ShieldAlert className="h-5 w-5 text-red-500" />
-                            )}
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{channel.safety.reason}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
                   </button>
                 ))
               ) : (
