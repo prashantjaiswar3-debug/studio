@@ -28,6 +28,8 @@ import {
   FastForward,
   PictureInPicture,
   History,
+  EyeOff,
+  Eye,
 } from 'lucide-react';
 import Image from 'next/image';
 import * as React from 'react';
@@ -83,6 +85,7 @@ export function StreamWeaverPlayer({
   const [sort, setSort] = React.useState<SortOption>('default');
   const [favorites, setFavorites] = useLocalStorage<string[]>('favorites', []);
   const [recents, setRecents] = useLocalStorage<string[]>('recents', []);
+  const [hidden, setHidden] = useLocalStorage<string[]>('hidden', []);
   const [category, setCategory] = React.useState('all');
   const [viewMode, setViewMode] = React.useState<ViewMode>('dashboard');
   const { toast } = useToast();
@@ -121,10 +124,12 @@ export function StreamWeaverPlayer({
   
   const handleSelectChannel = (channel: Channel) => {
     setSelectedChannel(channel);
-    setRecents(prev => {
-        const newRecents = [channel.url, ...prev.filter(u => u !== channel.url)];
-        return newRecents.slice(0, 20); // Keep only last 20 recents
-    });
+    if (!hidden.includes(channel.url)) {
+      setRecents(prev => {
+          const newRecents = [channel.url, ...prev.filter(u => u !== channel.url)];
+          return newRecents.slice(0, 20); // Keep only last 20 recents
+      });
+    }
   }
 
   const handleUrlLoad = async (e: React.FormEvent) => {
@@ -199,25 +204,46 @@ export function StreamWeaverPlayer({
         : [...prev, channelUrl]
     );
   };
+  
+  const toggleHidden = (channelUrl: string) => {
+    setHidden(prev => 
+      prev.includes(channelUrl) 
+        ? prev.filter(url => url !== channelUrl)
+        : [...prev, channelUrl]
+    );
+  };
 
   const categories = React.useMemo(() => {
     const groups = new Set(channels.map(c => c.group || 'uncategorized').filter(Boolean) as string[]);
     const specialCategories = ['all', 'favorites'];
-    if(isClient && recents.length > 0) {
+    if (isClient && recents.length > 0) {
         specialCategories.push('recents');
     }
+    if (isClient && hidden.length > 0) {
+        specialCategories.push('hidden');
+    }
     return [...specialCategories, ...Array.from(groups).sort()];
-  }, [channels, recents, isClient]);
+  }, [channels, recents, hidden, isClient]);
 
   const processedChannels = React.useMemo(() => {
     let processed = [...channels];
     
-    if (category === 'favorites') {
-      processed = processed.filter(c => favorites.includes(c.url));
-    } else if (category === 'recents') {
-        processed = recents.map(url => channels.find(c => c.url === url)).filter((c): c is Channel => !!c);
-    } else if (category !== 'all') {
-      processed = processed.filter(c => (c.group || 'uncategorized') === category);
+    if (category === 'hidden') {
+      processed = processed.filter(c => hidden.includes(c.url));
+    } else {
+      processed = processed.filter(c => !hidden.includes(c.url));
+      
+      if (category === 'favorites') {
+        processed = processed.filter(c => favorites.includes(c.url));
+      } else if (category === 'recents') {
+          if (isClient) {
+            processed = recents.map(url => channels.find(c => c.url === url)).filter((c): c is Channel => !!c && !hidden.includes(c.url));
+          } else {
+            processed = [];
+          }
+      } else if (category !== 'all') {
+        processed = processed.filter(c => (c.group || 'uncategorized') === category);
+      }
     }
 
     if (filter) {
@@ -235,7 +261,13 @@ export function StreamWeaverPlayer({
     }
 
     return processed;
-  }, [channels, filter, sort, category, favorites, recents]);
+  }, [channels, filter, sort, category, favorites, recents, hidden, isClient]);
+  
+  const dashboardChannels = React.useMemo(
+    () => channels.filter(c => !hidden.includes(c.url)),
+    [channels, hidden]
+  );
+
 
   return (
     <SidebarProvider>
@@ -333,6 +365,7 @@ export function StreamWeaverPlayer({
                   >
                     {cat === 'favorites' && <Star className="mr-2 h-4 w-4" />}
                     {cat === 'recents' && <History className="mr-2 h-4 w-4" />}
+                    {cat === 'hidden' && <EyeOff className="mr-2 h-4 w-4" />}
                     {cat}
                   </Button>
                 ))}
@@ -351,12 +384,13 @@ export function StreamWeaverPlayer({
               ) : processedChannels.length > 0 ? (
                 processedChannels.map((channel, index) => {
                   const isFavorite = isClient && favorites.includes(channel.url);
+                  const isHidden = isClient && hidden.includes(channel.url);
                   return (
                     <div
                       key={`${channel.url}-${index}`}
                       onClick={() => handleSelectChannel(channel)}
                       className={cn(
-                        'w-full text-left p-2 rounded-md flex items-center gap-3 transition-colors text-sm group/item cursor-pointer',
+                        'w-full text-left p-2 rounded-md flex items-center gap-2 transition-colors text-sm group/item cursor-pointer',
                         selectedChannel?.url === channel.url
                           ? 'bg-primary text-primary-foreground'
                           : 'hover:bg-sidebar-accent'
@@ -375,8 +409,9 @@ export function StreamWeaverPlayer({
                         variant="ghost" 
                         size="icon" 
                         className={cn(
-                          'h-8 w-8 shrink-0 transition-opacity group-hover/item:opacity-100',
-                          isFavorite ? 'opacity-100' : 'opacity-0'
+                          'h-8 w-8 shrink-0 transition-opacity',
+                          isFavorite || isHidden ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100',
+                          category !== 'hidden' && 'hover:opacity-100'
                         )}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -384,6 +419,17 @@ export function StreamWeaverPlayer({
                         }}
                       >
                         <Star className={cn('h-5 w-5', isFavorite ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 shrink-0 opacity-0 group-hover/item:opacity-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleHidden(channel.url);
+                        }}
+                      >
+                        {isHidden ? <Eye className="h-5 w-5 text-muted-foreground" /> : <EyeOff className="h-5 w-5 text-muted-foreground" />}
                       </Button>
                     </div>
                   );
@@ -438,7 +484,7 @@ export function StreamWeaverPlayer({
                 </div>
                 <TabsContent value="dashboard" className="flex-1 m-0">
                   <ChannelDashboard 
-                    channels={processedChannels} 
+                    channels={dashboardChannels} 
                     onSelectChannel={handleSelectChannel} 
                     allChannels={channels} 
                     recents={recents} 
@@ -742,7 +788,13 @@ function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isC
   }, [allChannels, recents, isClient]);
   
   const groupedChannels = React.useMemo(() => {
-    return channels.reduce((acc, channel) => {
+    const filteredChannels = channels.filter(
+      (c) =>
+        c.name.toLowerCase().includes(filter.toLowerCase()) ||
+        c.group?.toLowerCase().includes(filter.toLowerCase())
+    );
+
+    return filteredChannels.reduce((acc, channel) => {
       const groupName = channel.group || 'Uncategorized';
       if (!acc[groupName]) {
         acc[groupName] = [];
@@ -750,14 +802,17 @@ function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isC
       acc[groupName].push(channel);
       return acc;
     }, {} as Record<string, Channel[]>);
-  }, [channels]);
+  }, [channels, filter]);
 
-  if (channels.length === 0 && !filter) {
+  const channelsExist = channels.length > 0;
+  const filterHasResults = Object.keys(groupedChannels).length > 0;
+
+  if (!channelsExist && !filter) {
     return (
         <div className="text-center text-muted-foreground h-full flex flex-col items-center justify-center">
           <Clapperboard size={64} className="mx-auto text-primary" />
           <h2 className="mt-4 text-2xl font-bold text-foreground">No channels to display</h2>
-          <p className="mt-2">Load a playlist or adjust your filter.</p>
+          <p className="mt-2">Load a playlist to get started.</p>
         </div>
     );
   }
@@ -777,7 +832,7 @@ function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isC
         </div>
       <ScrollArea className="h-full flex-1">
         <div className="p-4 space-y-8">
-            {isClient && recentlyWatchedChannels.length > 0 && (
+            {isClient && recentlyWatchedChannels.length > 0 && !filter && (
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">Recently Watched</h2>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
@@ -806,7 +861,7 @@ function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isC
                     </div>
                 </div>
             )}
-          {Object.entries(groupedChannels).length > 0 ? (
+          {filterHasResults ? (
             Object.entries(groupedChannels).map(([groupName, groupChannels]) => (
                 <div key={groupName}>
                 <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">{groupName}</h2>
@@ -930,5 +985,7 @@ function EpgView({ channels }: { channels: Channel[] }) {
       </div>
   );
 }
+
+    
 
     
