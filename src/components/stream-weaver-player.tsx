@@ -23,6 +23,7 @@ import {
   Tv,
   Settings,
   X,
+  FileCog,
 } from 'lucide-react';
 import Image from 'next/image';
 import * as React from 'react';
@@ -60,12 +61,14 @@ interface StreamWeaverPlayerProps {
   initialChannels: Channel[];
   initialError?: string;
   samplePlaylistUrl: string;
+  configPlaylistUrl?: string;
 }
 
 export function StreamWeaverPlayer({
   initialChannels,
   initialError,
   samplePlaylistUrl,
+  configPlaylistUrl,
 }: StreamWeaverPlayerProps) {
   const [channels, setChannels] = React.useState<Channel[]>(initialChannels);
   const [selectedChannel, setSelectedChannel] = React.useState<Channel | null>(null);
@@ -88,7 +91,7 @@ export function StreamWeaverPlayer({
     if (initialError) {
       toast({
         variant: 'destructive',
-        title: 'Failed to load sample playlist',
+        title: 'Failed to load initial playlist',
         description: initialError,
       });
     }
@@ -151,22 +154,28 @@ export function StreamWeaverPlayer({
     reader.readAsText(file);
     e.target.value = ''; // Reset file input
   };
-
-  const loadSamplePlaylist = async () => {
+  
+  const loadPlaylistFromUrl = async (url: string, message: string) => {
     setIsLoading(true);
-    setPlaylistUrl(samplePlaylistUrl);
+    setPlaylistUrl(url);
     setSelectedChannel(null);
-    const result = await fetchAndParseM3U(samplePlaylistUrl);
+    const result = await fetchAndParseM3U(url);
     if (result.success) {
       setChannels(result.channels);
-      // We can't save the content from URL due to CORS, so we clear the local M3U
       setLastM3uContent(null);
-      toast({ title: 'Sample playlist loaded' });
+      toast({ title: message });
     } else {
-      toast({ variant: 'destructive', title: 'Error loading sample playlist', description: result.error });
+      toast({ variant: 'destructive', title: `Error loading ${message.toLowerCase()}`, description: result.error });
       setChannels([]);
     }
     setIsLoading(false);
+  };
+
+  const loadSamplePlaylist = () => loadPlaylistFromUrl(samplePlaylistUrl, 'Sample playlist loaded');
+  const loadConfigPlaylist = () => {
+    if (configPlaylistUrl) {
+      loadPlaylistFromUrl(configPlaylistUrl, 'Configured playlist loaded');
+    }
   };
   
   const toggleFavorite = (channelUrl: string) => {
@@ -250,7 +259,12 @@ export function StreamWeaverPlayer({
               </Button>
             </div>
             
-            <div className="group-data-[collapsible=icon]:hidden">
+            <div className="group-data-[collapsible=icon]:hidden flex flex-col gap-2">
+              {configPlaylistUrl && (
+                <Button variant="secondary" className="w-full" onClick={loadConfigPlaylist}>
+                  <FileCog className="mr-2 h-4 w-4" /> Load from Setup File
+                </Button>
+              )}
              <Button variant="secondary" className="w-full" onClick={loadSamplePlaylist}>
                 <List className="mr-2 h-4 w-4" /> Load Sample Playlist
               </Button>
@@ -727,5 +741,3 @@ function EpgView() {
     </div>
   );
 }
-
-    
