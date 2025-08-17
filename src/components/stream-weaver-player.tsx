@@ -20,6 +20,8 @@ import {
   Volume2,
   VolumeX,
   X,
+  ArrowDownAZ,
+  ArrowUpAZ,
 } from 'lucide-react';
 import Image from 'next/image';
 import * as React from 'react';
@@ -37,6 +39,18 @@ import {
 import { Slider } from './ui/slider';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Separator } from './ui/separator';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
+import { Card, CardContent } from './ui/card';
+
+type SortOption = 'default' | 'name-asc' | 'name-desc';
 
 interface StreamWeaverPlayerProps {
   initialChannels: Channel[];
@@ -54,6 +68,7 @@ export function StreamWeaverPlayer({
   const [playlistUrl, setPlaylistUrl] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [filter, setFilter] = React.useState('');
+  const [sort, setSort] = React.useState<SortOption>('default');
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -119,14 +134,22 @@ export function StreamWeaverPlayer({
     setIsLoading(false);
   };
 
-  const filteredChannels = React.useMemo(() => {
-    if (!filter) return channels;
-    return channels.filter(
-      (c) =>
-        c.name.toLowerCase().includes(filter.toLowerCase()) ||
-        c.group?.toLowerCase().includes(filter.toLowerCase())
-    );
-  }, [channels, filter]);
+  const processedChannels = React.useMemo(() => {
+    let processed = [...channels];
+    if (filter) {
+      processed = processed.filter(
+        (c) =>
+          c.name.toLowerCase().includes(filter.toLowerCase()) ||
+          c.group?.toLowerCase().includes(filter.toLowerCase())
+      );
+    }
+    if (sort === 'name-asc') {
+      processed.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sort === 'name-desc') {
+      processed.sort((a, b) => b.name.localeCompare(a.name));
+    }
+    return processed;
+  }, [channels, filter, sort]);
 
   return (
     <SidebarProvider>
@@ -177,9 +200,27 @@ export function StreamWeaverPlayer({
             </div>
           </div>
           <Separator className="my-2 group-data-[collapsible=icon]:hidden" />
-          <div className="relative p-2 group-data-[collapsible=icon]:hidden">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Filter channels..." className="pl-8" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <div className="relative p-2 group-data-[collapsible=icon]:hidden flex items-center gap-2">
+            <div className='relative flex-grow'>
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Filter channels..." className="pl-8" value={filter} onChange={(e) => setFilter(e.target.value)} />
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <ArrowDownAZ className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup value={sort} onValueChange={(value) => setSort(value as SortOption)}>
+                  <DropdownMenuRadioItem value="default">Default</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="name-asc">Name (A-Z)</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="name-desc">Name (Z-A)</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <ScrollArea className="flex-1 group-data-[collapsible=icon]:hidden">
             <div className="p-2 space-y-1">
@@ -187,8 +228,8 @@ export function StreamWeaverPlayer({
                 <div className="flex justify-center items-center p-8">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-              ) : filteredChannels.length > 0 ? (
-                filteredChannels.map((channel, index) => (
+              ) : processedChannels.length > 0 ? (
+                processedChannels.map((channel, index) => (
                   <button
                     key={`${channel.url}-${index}`}
                     onClick={() => setSelectedChannel(channel)}
@@ -232,7 +273,7 @@ export function StreamWeaverPlayer({
             {selectedChannel ? (
               <VideoPlayer key={selectedChannel.url} channel={selectedChannel} />
             ) : (
-              <WelcomeScreen />
+              <ChannelDashboard channels={processedChannels} onSelectChannel={setSelectedChannel} />
             )}
           </main>
         </div>
@@ -399,6 +440,49 @@ function VideoPlayer({ channel }: { channel: Channel }) {
             </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ChannelDashboard({ channels, onSelectChannel }: { channels: Channel[], onSelectChannel: (channel: Channel) => void }) {
+  if (channels.length === 0) {
+    return (
+        <div className="text-center text-muted-foreground">
+          <Clapperboard size={64} className="mx-auto text-primary" />
+          <h2 className="mt-4 text-2xl font-bold text-foreground">No channels to display</h2>
+          <p className="mt-2">Load a playlist or adjust your filter.</p>
+        </div>
+    );
+  }
+
+  return (
+    <div className='w-full h-full bg-background'>
+    <ScrollArea className="h-full">
+      <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+        {channels.map((channel, index) => (
+          <Card 
+            key={`${channel.url}-${index}`}
+            className="overflow-hidden cursor-pointer group hover:border-primary transition-all"
+            onClick={() => onSelectChannel(channel)}
+          >
+            <CardContent className="p-0 flex flex-col items-center justify-center aspect-square relative">
+               <Image
+                  src={channel.logo || `https://placehold.co/150x150/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
+                  alt={channel.name}
+                  width={150}
+                  height={150}
+                  className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                  unoptimized
+                />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-2">
+                 <h3 className="text-white font-bold text-sm truncate">{channel.name}</h3>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </ScrollArea>
     </div>
   );
 }
