@@ -20,6 +20,7 @@ import {
   ArrowDownAZ,
   Star,
   Tv,
+  Settings,
 } from 'lucide-react';
 import Image from 'next/image';
 import * as React from 'react';
@@ -48,6 +49,7 @@ import {
 import { Card, CardContent } from './ui/card';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 
 type SortOption = 'default' | 'name-asc' | 'name-desc';
 type ViewMode = 'dashboard' | 'epg';
@@ -394,6 +396,20 @@ export function StreamWeaverPlayer({
   );
 }
 
+const formatTime = (seconds: number) => {
+  if (isNaN(seconds) || seconds < 0) {
+    return '00:00';
+  }
+  const date = new Date(seconds * 1000);
+  const hh = date.getUTCHours();
+  const mm = date.getUTCMinutes();
+  const ss = date.getUTCSeconds().toString().padStart(2, '0');
+  if (hh) {
+    return `${hh}:${mm.toString().padStart(2, '0')}:${ss}`;
+  }
+  return `${mm}:${ss}`;
+};
+
 function VideoPlayer({ channel }: { channel: Channel }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
@@ -402,6 +418,9 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   const [progress, setProgress] = React.useState(0);
   const [isFullScreen, setIsFullScreen] = React.useState(false);
   const [showControls, setShowControls] = React.useState(true);
+  const [duration, setDuration] = React.useState(0);
+  const [currentTime, setCurrentTime] = React.useState(0);
+  const [playbackRate, setPlaybackRate] = React.useState(1);
   const controlsTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleMouseMove = React.useCallback(() => {
@@ -428,7 +447,6 @@ function VideoPlayer({ channel }: { channel: Channel }) {
             } else {
               video.src = channel.url;
             }
-            // Autoplay can be blocked by the browser, so we handle the promise rejection.
             await video.play();
         } catch(e) {
              console.error("Autoplay was prevented:", e);
@@ -444,8 +462,14 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     const onTimeUpdate = () => {
         if(video.duration && isFinite(video.duration)) {
             setProgress((video.currentTime / video.duration) * 100);
+            setCurrentTime(video.currentTime);
         } else {
-            setProgress(0); // Live stream
+            setProgress(0);
+        }
+    };
+    const onDurationChange = () => {
+        if (video.duration && isFinite(video.duration)) {
+            setDuration(video.duration);
         }
     };
     const onVolumeChange = () => {
@@ -457,6 +481,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     video.addEventListener('play', onPlay);
     video.addEventListener('pause', onPause);
     video.addEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('durationchange', onDurationChange);
     video.addEventListener('volumechange', onVolumeChange);
     document.addEventListener('fullscreenchange', onFullScreenChange);
     
@@ -464,6 +489,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
       video.removeEventListener('timeupdate', onTimeUpdate);
+      video.removeEventListener('durationchange', onDurationChange);
       video.removeEventListener('volumechange', onVolumeChange);
       document.removeEventListener('fullscreenchange', onFullScreenChange);
       if (controlsTimeoutRef.current) {
@@ -471,6 +497,12 @@ function VideoPlayer({ channel }: { channel: Channel }) {
       }
     };
   }, [channel.url, handleMouseMove]);
+  
+  React.useEffect(() => {
+    if(videoRef.current) {
+        videoRef.current.playbackRate = playbackRate;
+    }
+  }, [playbackRate]);
 
   const togglePlay = () => {
       if (!videoRef.current) return;
@@ -494,7 +526,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     }
   }
   const toggleFullScreen = () => {
-    const playerElement = videoRef.current?.parentElement;
+    const playerElement = videoRef.current?.closest('.group\\/player');
     if (!playerElement) return;
 
     if (!isFullScreen) {
@@ -506,11 +538,13 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     }
   };
    const seek = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    if (!videoRef.current || !videoRef.current.duration || !isFinite(videoRef.current.duration)) return; // Cannot seek on live streams
+    if (!videoRef.current || !duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const seekTime = ((e.clientX - rect.left) / rect.width) * videoRef.current.duration;
+    const seekTime = ((e.clientX - rect.left) / rect.width) * duration;
     videoRef.current.currentTime = seekTime;
   };
+  
+  const isLiveStream = !duration;
 
   return (
     <div className="w-full h-full relative group/player bg-black" onMouseMove={handleMouseMove}>
@@ -518,17 +552,17 @@ function VideoPlayer({ channel }: { channel: Channel }) {
 
       <div className={cn("absolute inset-0 bg-black/20 transition-opacity", showControls ? "opacity-100" : "opacity-0", "group-hover/player:opacity-100")}>
         <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col gap-2">
-            { videoRef.current?.duration && isFinite(videoRef.current.duration) &&
+            {!isLiveStream &&
               <div className="w-full cursor-pointer group/progress" onClick={seek}>
-                  <div className="w-full bg-white/20 h-1 rounded-full relative">
-                    <div className="bg-primary h-1 rounded-full" style={{ width: `${progress}%` }}></div>
+                  <div className="w-full bg-white/20 h-1.5 rounded-full relative group-hover/progress:h-2 transition-all">
+                    <div className="bg-primary h-full rounded-full" style={{ width: `${progress}%` }}></div>
                     <div className="absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-primary opacity-0 group-hover/progress:opacity-100 transition-opacity" style={{ left: `${progress}%` }}></div>
                   </div>
               </div>
             }
             <div className="flex items-center gap-4 text-white">
                 <Button variant="ghost" size="icon" onClick={togglePlay}>
-                  {isPlaying ? <Pause /> : <Play />}
+                  {isPlaying ? <Pause size={28} /> : <Play size={28} />}
                 </Button>
                 <div className="flex items-center gap-2 group/volume">
                     <Button variant="ghost" size="icon" onClick={toggleMute}>
@@ -543,7 +577,51 @@ function VideoPlayer({ channel }: { channel: Channel }) {
                       className="w-24 opacity-0 group-hover/volume:opacity-100 transition-opacity"
                     />
                 </div>
+                {!isLiveStream && (
+                   <div className="text-sm font-mono">
+                       {formatTime(currentTime)} / {formatTime(duration)}
+                   </div>
+                )}
+                 {isLiveStream && (
+                    <div className="flex items-center gap-2">
+                        <span className="relative flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        </span>
+                        <span className="text-sm font-medium">LIVE</span>
+                    </div>
+                 )}
                 <div className="flex-1" />
+
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <Settings />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-2">
+                        <div className="grid gap-4">
+                            <div className="space-y-2">
+                                <h4 className="font-medium leading-none">Playback Speed</h4>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-between">
+                                            {playbackRate}x
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        <DropdownMenuRadioGroup value={String(playbackRate)} onValueChange={(val) => setPlaybackRate(Number(val))}>
+                                            {[0.5, 0.75, 1, 1.25, 1.5, 2].map(rate => (
+                                                <DropdownMenuRadioItem key={rate} value={String(rate)}>{rate}x</DropdownMenuRadioItem>
+                                            ))}
+                                        </DropdownMenuRadioGroup>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+
                 <Button variant="ghost" size="icon" onClick={toggleFullScreen}>
                     {isFullScreen ? <Minimize /> : <Maximize />}
                 </Button>
