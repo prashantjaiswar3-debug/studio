@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Channel } from '@/lib/m3u-parser';
@@ -77,6 +78,11 @@ export function StreamWeaverPlayer({
   const [viewMode, setViewMode] = React.useState<ViewMode>('dashboard');
   const { toast } = useToast();
   const [lastM3uContent, setLastM3uContent] = useLocalStorage<string | null>('lastM3uContent', null);
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   React.useEffect(() => {
     if (initialError) {
@@ -308,42 +314,45 @@ export function StreamWeaverPlayer({
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : processedChannels.length > 0 ? (
-                processedChannels.map((channel, index) => (
-                  <div
-                    key={`${channel.url}-${index}`}
-                    onClick={() => setSelectedChannel(channel)}
-                    className={cn(
-                      'w-full text-left p-2 rounded-md flex items-center gap-3 transition-colors text-sm group/item cursor-pointer',
-                      selectedChannel?.url === channel.url
-                        ? 'bg-primary text-primary-foreground'
-                        : 'hover:bg-sidebar-accent'
-                    )}
-                  >
-                    <Image
-                      src={channel.logo || `https://placehold.co/40x40/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
-                      alt={channel.name}
-                      width={40}
-                      height={40}
-                      className="rounded-md bg-muted object-cover h-10 w-10"
-                      unoptimized
-                    />
-                    <span className="flex-1 truncate font-medium">{channel.name}</span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                processedChannels.map((channel, index) => {
+                  const isFavorite = isClient && favorites.includes(channel.url);
+                  return (
+                    <div
+                      key={`${channel.url}-${index}`}
+                      onClick={() => setSelectedChannel(channel)}
                       className={cn(
-                        'h-8 w-8 shrink-0 transition-opacity group-hover/item:opacity-100',
-                        favorites.includes(channel.url) ? 'opacity-100' : 'opacity-0'
+                        'w-full text-left p-2 rounded-md flex items-center gap-3 transition-colors text-sm group/item cursor-pointer',
+                        selectedChannel?.url === channel.url
+                          ? 'bg-primary text-primary-foreground'
+                          : 'hover:bg-sidebar-accent'
                       )}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite(channel.url);
-                      }}
                     >
-                      <Star className={cn('h-5 w-5', favorites.includes(channel.url) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
-                    </Button>
-                  </div>
-                ))
+                      <Image
+                        src={channel.logo || `https://placehold.co/40x40/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
+                        alt={channel.name}
+                        width={40}
+                        height={40}
+                        className="rounded-md bg-muted object-cover h-10 w-10"
+                        unoptimized
+                      />
+                      <span className="flex-1 truncate font-medium">{channel.name}</span>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className={cn(
+                          'h-8 w-8 shrink-0 transition-opacity group-hover/item:opacity-100',
+                          isFavorite ? 'opacity-100' : 'opacity-0'
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(channel.url);
+                        }}
+                      >
+                        <Star className={cn('h-5 w-5', isFavorite ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
+                      </Button>
+                    </div>
+                  );
+                })
               ) : (
                 <div className="text-center text-muted-foreground p-8 text-sm">No channels found.</div>
               )}
@@ -368,7 +377,7 @@ export function StreamWeaverPlayer({
                     size="icon"
                     onClick={() => toggleFavorite(selectedChannel.url)}
                   >
-                    <Star className={cn('h-6 w-6', favorites.includes(selectedChannel.url) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
+                    <Star className={cn('h-6 w-6', isClient && favorites.includes(selectedChannel.url) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
                   </Button>
                   <Button 
                     variant="ghost" 
@@ -718,3 +727,5 @@ function EpgView() {
     </div>
   );
 }
+
+    
