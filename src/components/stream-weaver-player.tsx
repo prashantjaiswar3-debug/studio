@@ -80,6 +80,7 @@ export function StreamWeaverPlayer({
   const [category, setCategory] = React.useState('all');
   const [viewMode, setViewMode] = React.useState<ViewMode>('dashboard');
   const { toast } = useToast();
+  const [lastM3uContent, setLastM3uContent] = useLocalStorage<string | null>('lastM3uContent', null);
 
   React.useEffect(() => {
     if (initialError) {
@@ -89,7 +90,23 @@ export function StreamWeaverPlayer({
         description: initialError,
       });
     }
-  }, [initialError, toast]);
+    
+    if (lastM3uContent && initialChannels.length === 0) {
+      const loadSavedPlaylist = async () => {
+        setIsLoading(true);
+        const result = await parseAndCheckM3U(lastM3uContent);
+        if (result.success) {
+          setChannels(result.channels);
+          toast({ title: 'Loaded saved playlist from your browser' });
+        } else {
+          toast({ variant: 'destructive', title: 'Error loading saved playlist', description: result.error });
+          setLastM3uContent(null);
+        }
+        setIsLoading(false);
+      }
+      loadSavedPlaylist();
+    }
+  }, [initialError, toast, lastM3uContent, setLastM3uContent, initialChannels.length]);
 
   const handleUrlLoad = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,6 +116,8 @@ export function StreamWeaverPlayer({
     const result = await fetchAndParseM3U(playlistUrl);
     if (result.success) {
       setChannels(result.channels);
+      // We can't save the content from URL due to CORS, so we clear the local M3U
+      setLastM3uContent(null);
       toast({ title: 'Playlist loaded successfully', description: `${result.channels.length} channels found.` });
     } else {
       toast({ variant: 'destructive', title: 'Error loading playlist', description: result.error });
@@ -115,13 +134,15 @@ export function StreamWeaverPlayer({
     const reader = new FileReader();
     reader.onload = async (event) => {
       const content = event.target?.result as string;
+      setLastM3uContent(content); // Save to local storage
       const result = await parseAndCheckM3U(content);
       if (result.success) {
         setChannels(result.channels);
-        toast({ title: 'Playlist loaded successfully', description: `${result.channels.length} channels found.` });
+        toast({ title: 'Playlist loaded and saved locally', description: `${result.channels.length} channels found.` });
       } else {
         toast({ variant: 'destructive', title: 'Error parsing file', description: result.error });
         setChannels([]);
+        setLastM3uContent(null);
       }
       setIsLoading(false);
     };
@@ -136,6 +157,8 @@ export function StreamWeaverPlayer({
     const result = await fetchAndParseM3U(samplePlaylistUrl);
     if (result.success) {
       setChannels(result.channels);
+      // We can't save the content from URL due to CORS, so we clear the local M3U
+      setLastM3uContent(null);
       toast({ title: 'Sample playlist loaded' });
     } else {
       toast({ variant: 'destructive', title: 'Error loading sample playlist', description: result.error });
