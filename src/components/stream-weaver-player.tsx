@@ -202,9 +202,9 @@ export function StreamWeaverPlayer({
 
   const categories = React.useMemo(() => {
     const groups = new Set(channels.map(c => c.group || 'uncategorized').filter(Boolean) as string[]);
-    const specialCategories = ['all', 'favorites', 'recents'];
-    if(isClient && recents.length === 0) {
-        specialCategories.splice(2,1);
+    const specialCategories = ['all', 'favorites'];
+    if(isClient && recents.length > 0) {
+        specialCategories.push('recents');
     }
     return [...specialCategories, ...Array.from(groups).sort()];
   }, [channels, recents, isClient]);
@@ -437,7 +437,15 @@ export function StreamWeaverPlayer({
                   </TabsList>
                 </div>
                 <TabsContent value="dashboard" className="flex-1 m-0">
-                  <ChannelDashboard channels={processedChannels} onSelectChannel={handleSelectChannel} allChannels={channels} recents={recents} isClient={isClient}/>
+                  <ChannelDashboard 
+                    channels={processedChannels} 
+                    onSelectChannel={handleSelectChannel} 
+                    allChannels={channels} 
+                    recents={recents} 
+                    isClient={isClient}
+                    filter={filter}
+                    onFilterChange={setFilter}
+                  />
                 </TabsContent>
                 <TabsContent value="epg" className="flex-1 m-0">
                   <EpgView channels={channels} />
@@ -727,10 +735,11 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   );
 }
 
-function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isClient }: { channels: Channel[], onSelectChannel: (channel: Channel) => void, allChannels: Channel[], recents: string[], isClient: boolean }) {
+function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isClient, filter, onFilterChange }: { channels: Channel[], onSelectChannel: (channel: Channel) => void, allChannels: Channel[], recents: string[], isClient: boolean, filter: string, onFilterChange: (filter: string) => void }) {
   const recentlyWatchedChannels = React.useMemo(() => {
+    if (!isClient) return [];
     return recents.map(url => allChannels.find(c => c.url === url)).filter((c): c is Channel => !!c);
-  }, [allChannels, recents]);
+  }, [allChannels, recents, isClient]);
   
   const groupedChannels = React.useMemo(() => {
     return channels.reduce((acc, channel) => {
@@ -743,7 +752,7 @@ function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isC
     }, {} as Record<string, Channel[]>);
   }, [channels]);
 
-  if (channels.length === 0) {
+  if (channels.length === 0 && !filter) {
     return (
         <div className="text-center text-muted-foreground h-full flex flex-col items-center justify-center">
           <Clapperboard size={64} className="mx-auto text-primary" />
@@ -754,8 +763,19 @@ function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isC
   }
 
   return (
-    <div className='w-full h-full bg-background'>
-      <ScrollArea className="h-full">
+    <div className='w-full h-full bg-background flex flex-col'>
+        <div className="p-4 border-b sticky top-0 bg-background z-10">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input 
+                    placeholder="Search all channels..." 
+                    className="pl-10 h-12 text-lg" 
+                    value={filter}
+                    onChange={(e) => onFilterChange(e.target.value)}
+                />
+            </div>
+        </div>
+      <ScrollArea className="h-full flex-1">
         <div className="p-4 space-y-8">
             {isClient && recentlyWatchedChannels.length > 0 && (
                 <div>
@@ -786,35 +806,43 @@ function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isC
                     </div>
                 </div>
             )}
-          {Object.entries(groupedChannels).map(([groupName, groupChannels]) => (
-            <div key={groupName}>
-              <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">{groupName}</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
-                {groupChannels.map((channel, index) => (
-                  <Card 
-                    key={`${channel.url}-${index}`}
-                    className="overflow-hidden cursor-pointer group hover:border-primary transition-all"
-                    onClick={() => onSelectChannel(channel)}
-                  >
-                    <CardContent className="p-0 flex flex-col items-center justify-center aspect-square relative">
-                       <Image
-                          src={channel.logo || `https://placehold.co/150x150/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
-                          alt={channel.name}
-                          width={150}
-                          height={150}
-                          className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                          unoptimized
-                        />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-2">
-                         <h3 className="text-white font-bold text-sm truncate">{channel.name}</h3>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+          {Object.entries(groupedChannels).length > 0 ? (
+            Object.entries(groupedChannels).map(([groupName, groupChannels]) => (
+                <div key={groupName}>
+                <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">{groupName}</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+                    {groupChannels.map((channel, index) => (
+                    <Card 
+                        key={`${channel.url}-${index}`}
+                        className="overflow-hidden cursor-pointer group hover:border-primary transition-all"
+                        onClick={() => onSelectChannel(channel)}
+                    >
+                        <CardContent className="p-0 flex flex-col items-center justify-center aspect-square relative">
+                        <Image
+                            src={channel.logo || `https://placehold.co/150x150/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
+                            alt={channel.name}
+                            width={150}
+                            height={150}
+                            className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                            unoptimized
+                            />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-2">
+                            <h3 className="text-white font-bold text-sm truncate">{channel.name}</h3>
+                        </div>
+                        </CardContent>
+                    </Card>
+                    ))}
+                </div>
+                </div>
+          ))
+        ) : (
+            <div className="text-center text-muted-foreground h-full flex flex-col items-center justify-center py-16">
+              <Search size={64} className="mx-auto text-primary" />
+              <h2 className="mt-4 text-2xl font-bold text-foreground">No channels found</h2>
+              <p className="mt-2">Try adjusting your search or filter.</p>
             </div>
-          ))}
+        )}
         </div>
       </ScrollArea>
     </div>
