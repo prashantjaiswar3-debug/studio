@@ -47,13 +47,6 @@ import {
 } from './ui/dropdown-menu';
 import { Card, CardContent } from './ui/card';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 type SortOption = 'default' | 'name-asc' | 'name-desc';
@@ -216,7 +209,7 @@ export function StreamWeaverPlayer({
           </div>
         </SidebarHeader>
 
-        <SidebarContent className="p-0">
+        <SidebarContent className="p-0 flex flex-col">
           <div className="flex flex-col gap-4 p-2">
             <form onSubmit={handleUrlLoad} className="flex flex-col gap-2 group-data-[collapsible=icon]:hidden">
               <div className="relative">
@@ -262,25 +255,16 @@ export function StreamWeaverPlayer({
                 <Input placeholder="Filter channels..." className="pl-8" value={filter} onChange={(e) => setFilter(e.target.value)} />
             </div>
             <div className="flex items-center gap-2">
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="w-full capitalize">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat} value={cat} className="capitalize">
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" className="shrink-0">
-                    <ArrowDownAZ className="h-4 w-4" />
+                  <Button variant="outline" className="w-full">
+                    <ArrowDownAZ className="mr-2 h-4 w-4" />
+                    <span className="capitalize">
+                      Sort: {sort === 'default' ? 'Default' : sort === 'name-asc' ? 'Name (A-Z)' : 'Name (Z-A)'}
+                    </span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
                   <DropdownMenuLabel>Sort by</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuRadioGroup value={sort} onValueChange={(value) => setSort(value as SortOption)}>
@@ -292,6 +276,27 @@ export function StreamWeaverPlayer({
               </DropdownMenu>
             </div>
           </div>
+
+          <div className="group-data-[collapsible=icon]:hidden px-2 pb-2">
+            <h3 className="text-xs font-semibold text-muted-foreground px-2 py-1">Categories</h3>
+            <ScrollArea className="h-32">
+              <div className="space-y-1 p-1">
+                {categories.map((cat) => (
+                  <Button
+                    key={cat}
+                    variant={category === cat ? 'secondary' : 'ghost'}
+                    className="w-full justify-start capitalize"
+                    onClick={() => setCategory(cat)}
+                  >
+                    {cat === 'favorites' && <Star className="mr-2 h-4 w-4" />}
+                    {cat}
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+
+          <Separator className="group-data-[collapsible=icon]:hidden" />
 
           <ScrollArea className="flex-1 group-data-[collapsible=icon]:hidden">
             <div className="p-2 space-y-1">
