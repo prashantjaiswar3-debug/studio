@@ -278,11 +278,11 @@ export function StreamWeaverPlayer({
                 </div>
               ) : processedChannels.length > 0 ? (
                 processedChannels.map((channel, index) => (
-                  <button
+                  <div
                     key={`${channel.url}-${index}`}
                     onClick={() => setSelectedChannel(channel)}
                     className={cn(
-                      'w-full text-left p-2 rounded-md flex items-center gap-3 transition-colors text-sm group/item',
+                      'w-full text-left p-2 rounded-md flex items-center gap-3 transition-colors text-sm group/item cursor-pointer',
                       selectedChannel?.url === channel.url
                         ? 'bg-primary text-primary-foreground'
                         : 'hover:bg-sidebar-accent'
@@ -311,7 +311,7 @@ export function StreamWeaverPlayer({
                     >
                       <Star className={cn('h-5 w-5', favorites.includes(channel.url) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
                     </Button>
-                  </button>
+                  </div>
                 ))
               ) : (
                 <div className="text-center text-muted-foreground p-8 text-sm">No channels found.</div>
