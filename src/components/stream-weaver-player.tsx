@@ -21,6 +21,7 @@ import {
   Star,
   Tv,
   Settings,
+  X,
 } from 'lucide-react';
 import Image from 'next/image';
 import * as React from 'react';
@@ -361,13 +362,23 @@ export function StreamWeaverPlayer({
               {selectedChannel?.group && <p className="text-xs text-muted-foreground">{selectedChannel.group}</p>}
             </div>
             {selectedChannel && (
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={() => toggleFavorite(selectedChannel.url)}
-                >
-                  <Star className={cn('h-6 w-6', favorites.includes(selectedChannel.url) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
-                </Button>
+                <>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => toggleFavorite(selectedChannel.url)}
+                  >
+                    <Star className={cn('h-6 w-6', favorites.includes(selectedChannel.url) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setSelectedChannel(null)}
+                    aria-label="Close player"
+                  >
+                    <X className='h-6 w-6' />
+                  </Button>
+                </>
             )}
           </header>
           <main className="flex-1 flex flex-col bg-black">
@@ -465,6 +476,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
             setCurrentTime(video.currentTime);
         } else {
             setProgress(0);
+            setCurrentTime(video.currentTime)
         }
     };
     const onDurationChange = () => {
@@ -538,13 +550,13 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     }
   };
    const seek = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    if (!videoRef.current || !duration) return;
+    if (!videoRef.current || !duration || !isFinite(duration)) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const seekTime = ((e.clientX - rect.left) / rect.width) * duration;
     videoRef.current.currentTime = seekTime;
   };
   
-  const isLiveStream = !duration;
+  const isLiveStream = !duration || !isFinite(duration);
 
   return (
     <div className="w-full h-full relative group/player bg-black" onMouseMove={handleMouseMove}>
@@ -577,18 +589,20 @@ function VideoPlayer({ channel }: { channel: Channel }) {
                       className="w-24 opacity-0 group-hover/volume:opacity-100 transition-opacity"
                     />
                 </div>
-                {!isLiveStream && (
+                {!isLiveStream ? (
                    <div className="text-sm font-mono">
                        {formatTime(currentTime)} / {formatTime(duration)}
                    </div>
-                )}
-                 {isLiveStream && (
+                ) : (
                     <div className="flex items-center gap-2">
                         <span className="relative flex h-3 w-3">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                           <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                         </span>
                         <span className="text-sm font-medium">LIVE</span>
+                        <div className="text-sm font-mono">
+                           {formatTime(currentTime)}
+                       </div>
                     </div>
                  )}
                 <div className="flex-1" />
