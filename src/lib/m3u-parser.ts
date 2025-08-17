@@ -42,7 +42,7 @@ export const parseM3U = (content: string): Channel[] => {
         channels.push({
           name: name || 'Unnamed Channel',
           logo: logoMatch ? logoMatch[1] : null,
-          group: groupMatch ? groupMatch[1] : null,
+          group: groupMatch ? groupMatch[1].trim() : null,
           url: urlLine,
           raw: `${infoLine}\n${urlLine}`,
         });

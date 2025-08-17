@@ -172,7 +172,7 @@ export function StreamWeaverPlayer({
   };
 
   const categories = React.useMemo(() => {
-    const groups = new Set(channels.map(c => c.group).filter(Boolean) as string[]);
+    const groups = new Set(channels.map(c => c.group || 'uncategorized').filter(Boolean) as string[]);
     return ['all', 'favorites', ...Array.from(groups).sort()];
   }, [channels]);
 
@@ -182,7 +182,7 @@ export function StreamWeaverPlayer({
     if (category === 'favorites') {
       processed = processed.filter(c => favorites.includes(c.url));
     } else if (category !== 'all') {
-      processed = processed.filter(c => c.group === category);
+      processed = processed.filter(c => (c.group || 'uncategorized') === category);
     }
 
     if (filter) {
@@ -647,6 +647,17 @@ function VideoPlayer({ channel }: { channel: Channel }) {
 }
 
 function ChannelDashboard({ channels, onSelectChannel }: { channels: Channel[], onSelectChannel: (channel: Channel) => void }) {
+  const groupedChannels = React.useMemo(() => {
+    return channels.reduce((acc, channel) => {
+      const groupName = channel.group || 'Uncategorized';
+      if (!acc[groupName]) {
+        acc[groupName] = [];
+      }
+      acc[groupName].push(channel);
+      return acc;
+    }, {} as Record<string, Channel[]>);
+  }, [channels]);
+
   if (channels.length === 0) {
     return (
         <div className="text-center text-muted-foreground h-full flex flex-col items-center justify-center">
@@ -659,32 +670,39 @@ function ChannelDashboard({ channels, onSelectChannel }: { channels: Channel[], 
 
   return (
     <div className='w-full h-full bg-background'>
-    <ScrollArea className="h-full">
-      <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
-        {channels.map((channel, index) => (
-          <Card 
-            key={`${channel.url}-${index}`}
-            className="overflow-hidden cursor-pointer group hover:border-primary transition-all"
-            onClick={() => onSelectChannel(channel)}
-          >
-            <CardContent className="p-0 flex flex-col items-center justify-center aspect-square relative">
-               <Image
-                  src={channel.logo || `https://placehold.co/150x150/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
-                  alt={channel.name}
-                  width={150}
-                  height={150}
-                  className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                  unoptimized
-                />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-2">
-                 <h3 className="text-white font-bold text-sm truncate">{channel.name}</h3>
+      <ScrollArea className="h-full">
+        <div className="p-4 space-y-8">
+          {Object.entries(groupedChannels).map(([groupName, groupChannels]) => (
+            <div key={groupName}>
+              <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">{groupName}</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+                {groupChannels.map((channel, index) => (
+                  <Card 
+                    key={`${channel.url}-${index}`}
+                    className="overflow-hidden cursor-pointer group hover:border-primary transition-all"
+                    onClick={() => onSelectChannel(channel)}
+                  >
+                    <CardContent className="p-0 flex flex-col items-center justify-center aspect-square relative">
+                       <Image
+                          src={channel.logo || `https://placehold.co/150x150/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
+                          alt={channel.name}
+                          width={150}
+                          height={150}
+                          className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                          unoptimized
+                        />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-2">
+                         <h3 className="text-white font-bold text-sm truncate">{channel.name}</h3>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </ScrollArea>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
     </div>
   );
 }
