@@ -24,6 +24,10 @@ import {
   Settings,
   X,
   FileCog,
+  Rewind,
+  FastForward,
+  PictureInPicture,
+  History,
 } from 'lucide-react';
 import Image from 'next/image';
 import * as React from 'react';
@@ -53,6 +57,7 @@ import { Card, CardContent } from './ui/card';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Skeleton } from './ui/skeleton';
 
 type SortOption = 'default' | 'name-asc' | 'name-desc';
 type ViewMode = 'dashboard' | 'epg';
@@ -77,6 +82,7 @@ export function StreamWeaverPlayer({
   const [filter, setFilter] = React.useState('');
   const [sort, setSort] = React.useState<SortOption>('default');
   const [favorites, setFavorites] = useLocalStorage<string[]>('favorites', []);
+  const [recents, setRecents] = useLocalStorage<string[]>('recents', []);
   const [category, setCategory] = React.useState('all');
   const [viewMode, setViewMode] = React.useState<ViewMode>('dashboard');
   const { toast } = useToast();
@@ -112,6 +118,14 @@ export function StreamWeaverPlayer({
       loadSavedPlaylist();
     }
   }, [initialError, toast, lastM3uContent, setLastM3uContent, initialChannels.length]);
+  
+  const handleSelectChannel = (channel: Channel) => {
+    setSelectedChannel(channel);
+    setRecents(prev => {
+        const newRecents = [channel.url, ...prev.filter(u => u !== channel.url)];
+        return newRecents.slice(0, 20); // Keep only last 20 recents
+    });
+  }
 
   const handleUrlLoad = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,14 +202,20 @@ export function StreamWeaverPlayer({
 
   const categories = React.useMemo(() => {
     const groups = new Set(channels.map(c => c.group || 'uncategorized').filter(Boolean) as string[]);
-    return ['all', 'favorites', ...Array.from(groups).sort()];
-  }, [channels]);
+    const specialCategories = ['all', 'favorites', 'recents'];
+    if(isClient && recents.length === 0) {
+        specialCategories.splice(2,1);
+    }
+    return [...specialCategories, ...Array.from(groups).sort()];
+  }, [channels, recents, isClient]);
 
   const processedChannels = React.useMemo(() => {
     let processed = [...channels];
     
     if (category === 'favorites') {
       processed = processed.filter(c => favorites.includes(c.url));
+    } else if (category === 'recents') {
+        processed = recents.map(url => channels.find(c => c.url === url)).filter((c): c is Channel => !!c);
     } else if (category !== 'all') {
       processed = processed.filter(c => (c.group || 'uncategorized') === category);
     }
@@ -215,7 +235,7 @@ export function StreamWeaverPlayer({
     }
 
     return processed;
-  }, [channels, filter, sort, category, favorites]);
+  }, [channels, filter, sort, category, favorites, recents]);
 
   return (
     <SidebarProvider>
@@ -312,6 +332,7 @@ export function StreamWeaverPlayer({
                     onClick={() => setCategory(cat)}
                   >
                     {cat === 'favorites' && <Star className="mr-2 h-4 w-4" />}
+                    {cat === 'recents' && <History className="mr-2 h-4 w-4" />}
                     {cat}
                   </Button>
                 ))}
@@ -333,7 +354,7 @@ export function StreamWeaverPlayer({
                   return (
                     <div
                       key={`${channel.url}-${index}`}
-                      onClick={() => setSelectedChannel(channel)}
+                      onClick={() => handleSelectChannel(channel)}
                       className={cn(
                         'w-full text-left p-2 rounded-md flex items-center gap-3 transition-colors text-sm group/item cursor-pointer',
                         selectedChannel?.url === channel.url
@@ -416,10 +437,10 @@ export function StreamWeaverPlayer({
                   </TabsList>
                 </div>
                 <TabsContent value="dashboard" className="flex-1 m-0">
-                  <ChannelDashboard channels={processedChannels} onSelectChannel={setSelectedChannel} />
+                  <ChannelDashboard channels={processedChannels} onSelectChannel={handleSelectChannel} allChannels={channels} recents={recents} />
                 </TabsContent>
                 <TabsContent value="epg" className="flex-1 m-0">
-                  <EpgView />
+                  <EpgView channels={channels} />
                 </TabsContent>
               </Tabs>
             )}
@@ -580,6 +601,25 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     videoRef.current.currentTime = seekTime;
   };
   
+  const handleSeek = (seconds: number) => {
+    if (videoRef.current && duration && isFinite(duration)) {
+        videoRef.current.currentTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + seconds));
+    }
+  };
+  
+  const togglePip = async () => {
+    if (!videoRef.current) return;
+    if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+    } else {
+        if (document.pictureInPictureEnabled) {
+            await videoRef.current.requestPictureInPicture();
+        } else {
+            console.error("Picture-in-Picture is not enabled in this browser.");
+        }
+    }
+  }
+  
   const isLiveStream = !duration || !isFinite(duration);
 
   return (
@@ -602,8 +642,14 @@ function VideoPlayer({ channel }: { channel: Channel }) {
               </div>
             }
             <div className="flex items-center gap-4 text-white">
+                <Button variant="ghost" size="icon" onClick={() => handleSeek(-10)} disabled={isLiveStream}>
+                    <Rewind size={24} />
+                </Button>
                 <Button variant="ghost" size="icon" onClick={togglePlay}>
                   {isPlaying ? <Pause size={28} /> : <Play size={28} />}
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => handleSeek(10)} disabled={isLiveStream}>
+                    <FastForward size={24} />
                 </Button>
                 <div className="flex items-center gap-2 group/volume">
                     <Button variant="ghost" size="icon" onClick={toggleMute}>
@@ -665,6 +711,12 @@ function VideoPlayer({ channel }: { channel: Channel }) {
                     </PopoverContent>
                 </Popover>
 
+                {document.pictureInPictureEnabled && (
+                    <Button variant="ghost" size="icon" onClick={togglePip}>
+                        <PictureInPicture />
+                    </Button>
+                )}
+                
                 <Button variant="ghost" size="icon" onClick={toggleFullScreen}>
                     {isFullScreen ? <Minimize /> : <Maximize />}
                 </Button>
@@ -675,7 +727,11 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   );
 }
 
-function ChannelDashboard({ channels, onSelectChannel }: { channels: Channel[], onSelectChannel: (channel: Channel) => void }) {
+function ChannelDashboard({ channels, onSelectChannel, allChannels, recents }: { channels: Channel[], onSelectChannel: (channel: Channel) => void, allChannels: Channel[], recents: string[] }) {
+  const recentlyWatchedChannels = React.useMemo(() => {
+    return recents.map(url => allChannels.find(c => c.url === url)).filter((c): c is Channel => !!c);
+  }, [allChannels, recents]);
+  
   const groupedChannels = React.useMemo(() => {
     return channels.reduce((acc, channel) => {
       const groupName = channel.group || 'Uncategorized';
@@ -701,6 +757,35 @@ function ChannelDashboard({ channels, onSelectChannel }: { channels: Channel[], 
     <div className='w-full h-full bg-background'>
       <ScrollArea className="h-full">
         <div className="p-4 space-y-8">
+            {recentlyWatchedChannels.length > 0 && (
+                <div>
+                    <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">Recently Watched</h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+                        {recentlyWatchedChannels.map((channel, index) => (
+                          <Card 
+                            key={`${channel.url}-${index}-recent`}
+                            className="overflow-hidden cursor-pointer group hover:border-primary transition-all"
+                            onClick={() => onSelectChannel(channel)}
+                          >
+                            <CardContent className="p-0 flex flex-col items-center justify-center aspect-square relative">
+                               <Image
+                                  src={channel.logo || `https://placehold.co/150x150/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
+                                  alt={channel.name}
+                                  width={150}
+                                  height={150}
+                                  className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                                  unoptimized
+                                />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                              <div className="absolute bottom-0 left-0 right-0 p-2">
+                                 <h3 className="text-white font-bold text-sm truncate">{channel.name}</h3>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                    </div>
+                </div>
+            )}
           {Object.entries(groupedChannels).map(([groupName, groupChannels]) => (
             <div key={groupName}>
               <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">{groupName}</h2>
@@ -736,14 +821,84 @@ function ChannelDashboard({ channels, onSelectChannel }: { channels: Channel[], 
   );
 }
 
-function EpgView() {
+function EpgView({ channels }: { channels: Channel[] }) {
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
+  if (channels.length === 0) {
+    return (
+      <div className="text-center text-muted-foreground h-full flex flex-col items-center justify-center p-4">
+        <Tv size={64} className="mx-auto text-primary" />
+        <h2 className="mt-4 text-2xl font-bold text-foreground">EPG is Empty</h2>
+        <p className="mt-2 max-w-md mx-auto">
+            Load a playlist to see the program guide. Full EPG functionality also requires an XMLTV data source, which is not yet implemented.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="text-center text-muted-foreground h-full flex flex-col items-center justify-center">
-      <Tv size={64} className="mx-auto text-primary" />
-      <h2 className="mt-4 text-2xl font-bold text-foreground">EPG View Not Available</h2>
-      <p className="mt-2 max-w-md mx-auto">
-        Full EPG functionality requires an XMLTV data source, which is not yet implemented.
-      </p>
-    </div>
+      <div className="h-full flex flex-col bg-background">
+          <div className="flex-none p-4 border-b">
+              <h2 className="text-xl font-bold">Electronic Program Guide</h2>
+          </div>
+          <div className="flex-1 overflow-auto">
+              <div className="relative grid gap-x-2" style={{ gridTemplateColumns: `10rem repeat(${hours.length}, 15rem)` }}>
+                  {/* Channel Headers (Sticky) */}
+                  <div className="sticky left-0 top-0 z-20 bg-background/95 backdrop-blur-sm">
+                      <div className="h-16 flex items-center justify-center font-semibold border-b border-r">Channels</div>
+                      {channels.slice(0, 20).map(channel => (
+                          <div key={channel.url} className="h-20 flex items-center px-2 border-b border-r">
+                                <Image
+                                    src={channel.logo || `https://placehold.co/40x40/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
+                                    alt={channel.name}
+                                    width={40} height={40} className="rounded-md object-cover mr-2" unoptimized/>
+                              <span className="truncate font-medium">{channel.name}</span>
+                          </div>
+                      ))}
+                  </div>
+
+                  {/* Timeline Header */}
+                  {hours.map(hour => (
+                      <div key={hour} className="h-16 flex items-center justify-center font-semibold border-b">
+                          {`${String(hour).padStart(2, '0')}:00`}
+                      </div>
+                  ))}
+                  
+                  {/* Current Time Indicator */}
+                   <div 
+                        className="absolute top-0 z-10 h-full w-0.5 bg-red-500" 
+                        style={{ left: `calc(10rem + ${currentHour * 15}rem + ${(currentMinute / 60) * 15}rem)`}}
+                    >
+                       <div className="absolute -top-1 -left-1.5 h-4 w-4 rounded-full bg-red-500" />
+                   </div>
+
+                  {/* Program Grid */}
+                  {channels.slice(0, 20).map(channel => (
+                    <React.Fragment key={`${channel.url}-programs`}>
+                        {hours.map(hour => (
+                            <div key={`${channel.url}-${hour}`} className="h-20 p-1 border-b">
+                                <div className="bg-muted/50 rounded-md h-full w-full p-2 text-sm text-muted-foreground flex flex-col justify-center">
+                                    <p className="font-bold text-foreground truncate">Program Title Placeholder</p>
+                                    <p className="text-xs truncate">EPG Data not available</p>
+                                </div>
+                            </div>
+                        ))}
+                    </React.Fragment>
+                  ))}
+
+                  {/* Ghost elements for grid layout */}
+                  <div className="sticky left-0 top-0 z-20 bg-transparent" />
+                  {hours.map(hour => <div key={`ghost-${hour}`} />)}
+              </div>
+          </div>
+          {channels.length > 20 && (
+              <div className="flex-none text-center p-4 text-muted-foreground border-t">
+                  Showing first 20 channels. Full EPG view is a proof-of-concept.
+              </div>
+          )}
+      </div>
   );
 }
