@@ -446,6 +446,7 @@ const formatTime = (seconds: number) => {
 
 function VideoPlayer({ channel }: { channel: Channel }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
+  const playerRef = React.useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [volume, setVolume] = React.useState(1);
   const [isMuted, setIsMuted] = React.useState(false);
@@ -561,7 +562,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     }
   }
   const toggleFullScreen = () => {
-    const playerElement = videoRef.current?.closest('.group\\/player');
+    const playerElement = playerRef.current;
     if (!playerElement) return;
 
     if (!isFullScreen) {
@@ -582,16 +583,21 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   const isLiveStream = !duration || !isFinite(duration);
 
   return (
-    <div className="w-full h-full relative group/player bg-black" onMouseMove={handleMouseMove}>
+    <div ref={playerRef} className="w-full h-full relative group/player bg-black" onMouseMove={handleMouseMove}>
       <video ref={videoRef} className="w-full h-full object-contain" onClick={togglePlay} />
 
-      <div className={cn("absolute inset-0 bg-black/20 transition-opacity", showControls ? "opacity-100" : "opacity-0", "group-hover/player:opacity-100")}>
+      <div className={cn(
+          "absolute inset-0 bg-gradient-to-t from-black/50 to-transparent transition-opacity duration-300", 
+          showControls ? "opacity-100" : "opacity-0", 
+          "group-hover/player:opacity-100"
+        )}
+      >
         <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col gap-2">
             {!isLiveStream &&
               <div className="w-full cursor-pointer group/progress" onClick={seek}>
-                  <div className="w-full bg-white/20 h-1.5 rounded-full relative group-hover/progress:h-2 transition-all">
+                  <div className="w-full bg-white/20 h-1 rounded-full relative group-hover/progress:h-2 transition-all duration-200">
                     <div className="bg-primary h-full rounded-full" style={{ width: `${progress}%` }}></div>
-                    <div className="absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-primary opacity-0 group-hover/progress:opacity-100 transition-opacity" style={{ left: `${progress}%` }}></div>
+                    <div className="absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-primary opacity-0 group-hover/progress:opacity-100 transition-opacity" style={{ left: `${progress}%` }}></div>
                   </div>
               </div>
             }
@@ -609,7 +615,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
                       max={1}
                       step={0.05}
                       onValueChange={handleVolumeChange}
-                      className="w-24 opacity-0 group-hover/volume:opacity-100 transition-opacity"
+                      className="w-24 opacity-0 group-hover/volume:opacity-100 transition-opacity duration-200"
                     />
                 </div>
                 {!isLiveStream ? (
