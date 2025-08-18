@@ -242,17 +242,6 @@ export function StreamWeaverPlayer({
     return processed;
   }, [channels, filter, sort, category, favorites, recents, isClient]);
   
-  const dashboardChannels = React.useMemo(() => {
-    if (filter) {
-      return channels.filter(
-        (c) =>
-          c.name.toLowerCase().includes(filter.toLowerCase()) ||
-          c.group?.toLowerCase().includes(filter.toLowerCase())
-      );
-    }
-    return channels;
-  }, [channels, filter]);
-
 
   return (
     <SidebarProvider>
@@ -431,6 +420,13 @@ export function StreamWeaverPlayer({
                   >
                     <Star className={cn('h-6 w-6', isClient && favorites.includes(selectedChannel.url) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
                   </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setSelectedChannel(null)}
+                  >
+                    <X className="h-6 w-6" />
+                  </Button>
                 </>
             )}
           </header>
@@ -447,9 +443,8 @@ export function StreamWeaverPlayer({
                 </div>
                 <TabsContent value="dashboard" className="flex-1 m-0">
                   <ChannelDashboard 
-                    channels={dashboardChannels} 
+                    channels={channels} 
                     onSelectChannel={handleSelectChannel} 
-                    allChannels={channels}
                     recents={recents}
                     isClient={isClient}
                   />
@@ -492,6 +487,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   const [duration, setDuration] = React.useState(0);
   const [currentTime, setCurrentTime] = React.useState(0);
   const [playbackRate, setPlaybackRate] = React.useState(1);
+  const [error, setError] = React.useState<string | null>(null);
   const controlsTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleMouseMove = React.useCallback(() => {
@@ -527,7 +523,21 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   
   const toggleMute = React.useCallback(() => {
     if(videoRef.current) {
-        videoRef.current.muted = !videoRef.current.muted;
+        const newMuted = !videoRef.current.muted
+        videoRef.current.muted = newMuted;
+        setIsMuted(newMuted)
+    }
+  }, []);
+  
+  const handleVolumeChange = React.useCallback((value: number[]) => {
+    if (videoRef.current) {
+        const newVolume = value[0];
+        videoRef.current.volume = newVolume;
+        setVolume(newVolume);
+        if (newVolume > 0 && videoRef.current.muted) {
+            videoRef.current.muted = false;
+            setIsMuted(false);
+        }
     }
   }, []);
 
@@ -544,45 +554,48 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     const hls = new Hls();
     const source = channel.url;
 
+    const onInitialPlay = () => {
+        setIsPlaying(true);
+        video.play().catch(e => {
+            console.error("Autoplay was prevented:", e);
+            setIsPlaying(false);
+            video.muted = true;
+            video.play().catch(console.error);
+        });
+    }
+
     if (source.endsWith('.m3u8') && Hls.isSupported()) {
         hls.loadSource(source);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play().catch(e => {
-                console.error("Autoplay was prevented:", e);
-                setIsPlaying(false);
-            });
+            onInitialPlay();
         });
         hls.on(Hls.Events.ERROR, (event, data) => {
             if (data.fatal) {
+                console.error("HLS.js fatal error:", data);
+                setError(`Playback error: ${data.details}`);
                 switch(data.type) {
                     case Hls.ErrorTypes.NETWORK_ERROR:
-                        console.error("fatal network error encountered, trying to recover");
+                        console.error("Fatal network error encountered, trying to recover");
                         hls.startLoad();
                         break;
                     case Hls.ErrorTypes.MEDIA_ERROR:
-                        console.error("fatal media error encountered, trying to recover");
+                        console.error("Fatal media error encountered, trying to recover");
                         hls.recoverMediaError();
                         break;
                     default:
-                        console.error("unrecoverable fatal error", data);
+                        console.error("Unrecoverable fatal error", data);
                         hls.destroy();
                         break;
                 }
             }
         });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    } else if (video.canPlayType('application/vnd.apple.mpegurl') || source.endsWith('.m3u8')) {
         video.src = source;
-        video.play().catch(e => {
-            console.error("Autoplay was prevented:", e);
-            setIsPlaying(false);
-        });
+        onInitialPlay();
     } else {
         video.src = source;
-        video.play().catch(e => {
-            console.error("Autoplay was prevented:", e);
-            setIsPlaying(false);
-        });
+        onInitialPlay();
     }
 
     handleMouseMove();
@@ -603,17 +616,22 @@ function VideoPlayer({ channel }: { channel: Channel }) {
             setDuration(video.duration);
         }
     };
-    const onVolumeChange = () => {
+    const onVideoVolumeChange = () => {
       setVolume(video.volume);
       setIsMuted(video.muted);
     };
     const onFullScreenChange = () => setIsFullScreen(!!document.fullscreenElement);
+    const onError = (e: Event) => {
+        console.error('Video element error:', e);
+        setError('The video could not be loaded. It may be offline or in an unsupported format.');
+    }
 
     video.addEventListener('play', onPlay);
     video.addEventListener('pause', onPause);
     video.addEventListener('timeupdate', onTimeUpdate);
     video.addEventListener('durationchange', onDurationChange);
-    video.addEventListener('volumechange', onVolumeChange);
+    video.addEventListener('volumechange', onVideoVolumeChange);
+    video.addEventListener('error', onError);
     document.addEventListener('fullscreenchange', onFullScreenChange);
     
     return () => {
@@ -622,7 +640,8 @@ function VideoPlayer({ channel }: { channel: Channel }) {
       video.removeEventListener('pause', onPause);
       video.removeEventListener('timeupdate', onTimeUpdate);
       video.removeEventListener('durationchange', onDurationChange);
-      video.removeEventListener('volumechange', onVolumeChange);
+      video.removeEventListener('volumechange', onVideoVolumeChange);
+      video.removeEventListener('error', onError);
       document.removeEventListener('fullscreenchange', onFullScreenChange);
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
@@ -635,14 +654,6 @@ function VideoPlayer({ channel }: { channel: Channel }) {
         videoRef.current.playbackRate = playbackRate;
     }
   }, [playbackRate]);
-
-  const handleVolumeChange = (value: number[]) => {
-    if (videoRef.current) {
-        const newVolume = value[0];
-        videoRef.current.volume = newVolume;
-        videoRef.current.muted = newVolume === 0;
-    }
-  }
 
    const seek = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     if (!videoRef.current || !duration || !isFinite(duration)) return;
@@ -669,10 +680,18 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   return (
     <div ref={playerRef} className="w-full h-full relative bg-black" onMouseMove={handleMouseMove}>
       <video ref={videoRef} className="w-full h-full object-contain" onClick={togglePlay} />
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+          <div className="text-center text-white p-4 rounded-md bg-destructive">
+            <h3 className="text-lg font-bold mb-2">Playback Error</h3>
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      )}
 
       <div className={cn(
           "absolute inset-0 bg-gradient-to-t from-black/50 to-transparent transition-opacity duration-300", 
-          showControls ? "opacity-100" : "opacity-0"
+          showControls || error ? "opacity-100" : "opacity-0"
         )}
       >
         <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col gap-2">
@@ -699,7 +718,6 @@ function VideoPlayer({ channel }: { channel: Channel }) {
                         {isMuted || volume === 0 ? <VolumeX /> : <Volume2 />}
                     </Button>
                     <Slider
-                      defaultValue={[1]}
                       value={[isMuted ? 0 : volume]}
                       max={1}
                       step={0.05}
@@ -770,13 +788,13 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   );
 }
 
-function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isClient }: { channels: Channel[], onSelectChannel: (channel: Channel) => void, allChannels: Channel[], recents: string[], isClient: boolean }) {
+function ChannelDashboard({ channels, onSelectChannel, recents, isClient }: { channels: Channel[], onSelectChannel: (channel: Channel) => void, recents: string[], isClient: boolean }) {
   const [filter, setFilter] = React.useState('');
 
   const recentlyWatchedChannels = React.useMemo(() => {
     if (!isClient) return [];
-    return recents.map(url => allChannels.find(c => c.url === url)).filter((c): c is Channel => !!c);
-  }, [allChannels, recents, isClient]);
+    return recents.map(url => channels.find(c => c.url === url)).filter((c): c is Channel => !!c);
+  }, [channels, recents, isClient]);
   
   const groupedChannels = React.useMemo(() => {
     const filteredChannels = channels.filter(
@@ -808,35 +826,45 @@ function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isC
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-8">
-          {isClient && recentlyWatchedChannels.length > 0 && (
-              <div>
-                  <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">Recently Watched</h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
-                      {recentlyWatchedChannels.map((channel, index) => (
-                        <Card 
-                          key={`${channel.url}-${index}-recent`}
-                          className="overflow-hidden cursor-pointer group hover:border-primary transition-all"
-                          onClick={() => onSelectChannel(channel)}
-                        >
-                          <CardContent className="p-0 flex flex-col items-center justify-center aspect-square relative">
-                             <Image
-                                src={channel.logo || `https://placehold.co/150x150/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
-                                alt={channel.name}
-                                width={150}
-                                height={150}
-                                className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                                unoptimized
-                              />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                            <div className="absolute bottom-0 left-0 right-0 p-2">
-                               <h3 className="text-white font-bold text-sm truncate">{channel.name}</h3>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                  </div>
-              </div>
-          )}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Input 
+            placeholder="Search dashboard channels..." 
+            className="pl-10 w-full max-w-sm" 
+            value={filter} 
+            onChange={(e) => setFilter(e.target.value)} 
+          />
+        </div>
+
+        {isClient && recentlyWatchedChannels.length > 0 && filter === '' && (
+            <div>
+                <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">Recently Watched</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+                    {recentlyWatchedChannels.map((channel, index) => (
+                      <Card 
+                        key={`${channel.url}-${index}-recent`}
+                        className="overflow-hidden cursor-pointer group hover:border-primary transition-all"
+                        onClick={() => onSelectChannel(channel)}
+                      >
+                        <CardContent className="p-0 flex flex-col items-center justify-center aspect-square relative">
+                           <Image
+                              src={channel.logo || `https://placehold.co/150x150/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
+                              alt={channel.name}
+                              width={150}
+                              height={150}
+                              className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                              unoptimized
+                            />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                          <div className="absolute bottom-0 left-0 right-0 p-2">
+                             <h3 className="text-white font-bold text-sm truncate">{channel.name}</h3>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                </div>
+            </div>
+        )}
         {Object.entries(groupedChannels).map(([groupName, groupChannels]) => (
           <div key={groupName}>
             <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">{groupName}</h2>
