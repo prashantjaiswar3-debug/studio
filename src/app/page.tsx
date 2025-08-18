@@ -22,22 +22,6 @@ const loadConfig = (): AppConfig => {
   return {};
 };
 
-const loadLocalPlaylist = async (): Promise<Channel[]> => {
-    try {
-        const localPlaylistPath = path.join(process.cwd(), 'public', 'playlist.m3u');
-        if (fs.existsSync(localPlaylistPath)) {
-            const m3uContent = fs.readFileSync(localPlaylistPath, 'utf-8');
-            const result = await parseAndCheckM3U(m3uContent);
-            if (result.success) {
-                return result.channels;
-            }
-        }
-    } catch (error) {
-        console.error('Error loading local playlist.m3u:', error);
-    }
-    return [];
-};
-
 export default async function Home() {
   const config = loadConfig();
   const playlistUrls = config.defaultPlaylistUrls || (config.defaultPlaylistUrl ? [config.defaultPlaylistUrl] : []);
@@ -55,11 +39,7 @@ export default async function Home() {
           }
       }
   } else {
-      // If no remote URLs, load the local playlist
-      allChannels = await loadLocalPlaylist();
-      if (allChannels.length === 0) {
-          errorMessages.push('Could not load default remote playlists or local playlist.m3u. Please provide a playlist URL.');
-      }
+      errorMessages.push('Could not load any default remote playlists. Please provide a playlist URL.');
   }
   
   // Remove duplicate channels by URL

@@ -44,8 +44,6 @@ You need to have [Node.js](https://nodejs.org/) (version 18 or later) and [npm](
 4.  **Open the application:**
     Open [http://localhost:9002](http://localhost:9002) with your browser to see the result.
 
-The application comes pre-loaded with a sample `playlist.m3u` file, so you can start exploring its features right away.
-
 ## How to Use
 
 ### Loading a Playlist
@@ -72,7 +70,7 @@ You can configure the application to load specific playlists by default.
     }
     ```
 
-The application will fetch and merge these playlists on startup. If this array is empty, it will fall back to loading the local `public/playlist.m3u` file.
+The application will fetch and merge these playlists on startup.
 
 ## Built With
 
