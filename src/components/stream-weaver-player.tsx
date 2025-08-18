@@ -378,7 +378,7 @@ export function StreamWeaverPlayer({
                         alt={channel.name}
                         width={40}
                         height={40}
-                        className="rounded-md bg-muted object-cover h-10 w-10"
+                        className="rounded-md bg-muted object-contain h-10 w-10 p-1"
                         unoptimized
                       />
                       <span className="flex-1 truncate font-medium">{channel.name}</span>
@@ -858,7 +858,7 @@ function ChannelDashboard({ channels, onSelectChannel, recents, isClient }: { ch
                               alt={channel.name}
                               width={150}
                               height={150}
-                              className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                              className="w-full h-full object-contain p-2 transition-transform group-hover:scale-110"
                               unoptimized
                             />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
@@ -887,7 +887,7 @@ function ChannelDashboard({ channels, onSelectChannel, recents, isClient }: { ch
                       alt={channel.name}
                       width={150}
                       height={150}
-                      className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                      className="w-full h-full object-contain p-2 transition-transform group-hover:scale-110"
                       unoptimized
                       />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
@@ -938,7 +938,7 @@ function EpgView({ channels }: { channels: Channel[] }) {
                                 <Image
                                     src={channel.logo || `https://placehold.co/40x40/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
                                     alt={channel.name}
-                                    width={40} height={40} className="rounded-md object-cover mr-2" unoptimized/>
+                                    width={40} height={40} className="rounded-md object-contain mr-2 p-1" unoptimized/>
                               <span className="truncate font-medium">{channel.name}</span>
                           </div>
                       ))}
@@ -986,3 +986,5 @@ function EpgView({ channels }: { channels: Channel[] }) {
       </div>
   );
 }
+
+    
