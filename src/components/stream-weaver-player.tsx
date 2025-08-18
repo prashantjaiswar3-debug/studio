@@ -431,14 +431,6 @@ export function StreamWeaverPlayer({
                   >
                     <Star className={cn('h-6 w-6', isClient && favorites.includes(selectedChannel.url) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => setSelectedChannel(null)}
-                    aria-label="Close player"
-                  >
-                    <X className='h-6 w-6' />
-                  </Button>
                 </>
             )}
           </header>
@@ -549,11 +541,49 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     const video = videoRef.current;
     if (!video) return;
 
-    video.src = channel.url;
-    video.play().catch(e => {
-        console.error("Autoplay was prevented:", e);
-        setIsPlaying(false);
-    });
+    const hls = new Hls();
+    const source = channel.url;
+
+    if (source.endsWith('.m3u8') && Hls.isSupported()) {
+        hls.loadSource(source);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play().catch(e => {
+                console.error("Autoplay was prevented:", e);
+                setIsPlaying(false);
+            });
+        });
+        hls.on(Hls.Events.ERROR, (event, data) => {
+            if (data.fatal) {
+                switch(data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                        console.error("fatal network error encountered, trying to recover");
+                        hls.startLoad();
+                        break;
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                        console.error("fatal media error encountered, trying to recover");
+                        hls.recoverMediaError();
+                        break;
+                    default:
+                        console.error("unrecoverable fatal error", data);
+                        hls.destroy();
+                        break;
+                }
+            }
+        });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = source;
+        video.play().catch(e => {
+            console.error("Autoplay was prevented:", e);
+            setIsPlaying(false);
+        });
+    } else {
+        video.src = source;
+        video.play().catch(e => {
+            console.error("Autoplay was prevented:", e);
+            setIsPlaying(false);
+        });
+    }
 
     handleMouseMove();
 
@@ -587,6 +617,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     document.addEventListener('fullscreenchange', onFullScreenChange);
     
     return () => {
+      hls.destroy();
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
       video.removeEventListener('timeupdate', onTimeUpdate);
