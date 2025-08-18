@@ -1,3 +1,6 @@
 {
-  "defaultPlaylistUrl": "https://iptv-org.github.io/iptv/languages/bho.m3u"
+  "defaultPlaylistUrls": [
+    "https://iptv-org.github.io/iptv/languages/bho.m3u",
+    "https://iptv-org.github.io/iptv/languages/hin.m3u"
+  ]
 }
