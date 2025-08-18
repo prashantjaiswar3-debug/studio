@@ -1,11 +1,10 @@
-import { fetchAndParseM3U, parseAndCheckM3U } from '@/app/actions';
+import { fetchAndParseM3U } from '@/app/actions';
 import { StreamWeaverPlayer } from '@/components/stream-weaver-player';
 import { Channel } from '@/lib/m3u-parser';
 import fs from 'fs';
 import path from 'path';
 
 interface AppConfig {
-  defaultPlaylistUrl?: string;
   defaultPlaylistUrls?: string[];
 }
 
@@ -24,7 +23,7 @@ const loadConfig = (): AppConfig => {
 
 export default async function Home() {
   const config = loadConfig();
-  const playlistUrls = config.defaultPlaylistUrls || (config.defaultPlaylistUrl ? [config.defaultPlaylistUrl] : []);
+  const playlistUrls = config.defaultPlaylistUrls || [];
   
   let allChannels: Channel[] = [];
   let errorMessages: string[] = [];
@@ -51,7 +50,7 @@ export default async function Home() {
       initialChannels={uniqueChannels}
       initialError={errorMessages.length > 0 ? errorMessages.join('; ') : undefined}
       samplePlaylistUrl={'https://iptv-org.github.io/iptv/index.m3u'}
-      configPlaylistUrl={config.defaultPlaylistUrl || (config.defaultPlaylistUrls ? config.defaultPlaylistUrls[0] : undefined)}
+      configPlaylistUrl={config.defaultPlaylistUrls ? config.defaultPlaylistUrls[0] : undefined}
     />
   );
 }
