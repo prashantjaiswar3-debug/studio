@@ -242,10 +242,16 @@ export function StreamWeaverPlayer({
     return processed;
   }, [channels, filter, sort, category, favorites, recents, isClient]);
   
-  const dashboardChannels = React.useMemo(
-    () => channels,
-    [channels]
-  );
+  const dashboardChannels = React.useMemo(() => {
+    if (filter) {
+      return channels.filter(
+        (c) =>
+          c.name.toLowerCase().includes(filter.toLowerCase()) ||
+          c.group?.toLowerCase().includes(filter.toLowerCase())
+      );
+    }
+    return channels;
+  }, [channels, filter]);
 
 
   return (
@@ -451,8 +457,8 @@ export function StreamWeaverPlayer({
                   <ChannelDashboard 
                     channels={dashboardChannels} 
                     onSelectChannel={handleSelectChannel} 
-                    allChannels={channels} 
-                    recents={recents} 
+                    allChannels={channels}
+                    recents={recents}
                     isClient={isClient}
                   />
                 </TabsContent>
@@ -507,7 +513,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   const togglePlay = React.useCallback(() => {
     if (videoRef.current) {
       if (videoRef.current.paused) {
-        videoRef.current.play().catch(e => console.error("Play failed:", e));
+        videoRef.current.play();
       } else {
         videoRef.current.pause();
       }
@@ -543,25 +549,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     const video = videoRef.current;
     if (!video) return;
 
-    let hls: Hls | null = null;
-
-    if (channel.url.includes('.m3u8')) {
-      if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = channel.url;
-      } else if (Hls.isSupported()) {
-        hls = new Hls();
-        hls.loadSource(channel.url);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          video.play().catch(() => setIsPlaying(false));
-        });
-      } else {
-        console.error('HLS is not supported on this browser.');
-      }
-    } else {
-      video.src = channel.url;
-    }
-
+    video.src = channel.url;
     video.play().catch(e => {
         console.error("Autoplay was prevented:", e);
         setIsPlaying(false);
@@ -599,9 +587,6 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     document.addEventListener('fullscreenchange', onFullScreenChange);
     
     return () => {
-      if (hls) {
-        hls.destroy();
-      }
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
       video.removeEventListener('timeupdate', onTimeUpdate);
@@ -619,62 +604,6 @@ function VideoPlayer({ channel }: { channel: Channel }) {
         videoRef.current.playbackRate = playbackRate;
     }
   }, [playbackRate]);
-
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore shortcuts if a text input is focused
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      const playerFocused = playerRef.current?.contains(document.activeElement);
-      if(!playerFocused && e.key !== 'f') { // Allow fullscreen toggle globally
-          // return;
-      }
-      
-      switch (e.key) {
-        case ' ':
-          e.preventDefault();
-          togglePlay();
-          break;
-        case 'f':
-          e.preventDefault();
-          toggleFullScreen();
-          break;
-        case 'm':
-          e.preventDefault();
-          toggleMute();
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          handleSeek(-10);
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          handleSeek(10);
-          break;
-        case 'ArrowUp':
-            e.preventDefault();
-            if (videoRef.current) {
-              const newVolume = Math.min(1, videoRef.current.volume + 0.1);
-              videoRef.current.volume = newVolume;
-            }
-            break;
-        case 'ArrowDown':
-            e.preventDefault();
-            if (videoRef.current) {
-              const newVolume = Math.max(0, videoRef.current.volume - 0.1);
-              videoRef.current.volume = newVolume;
-            }
-            break;
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [togglePlay, toggleFullScreen, toggleMute, handleSeek]);
 
   const handleVolumeChange = (value: number[]) => {
     if (videoRef.current) {
@@ -707,7 +636,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   const isLiveStream = !duration || !isFinite(duration);
 
   return (
-    <div ref={playerRef} className="w-full h-full relative bg-black" onMouseMove={handleMouseMove} tabIndex={0}>
+    <div ref={playerRef} className="w-full h-full relative bg-black" onMouseMove={handleMouseMove}>
       <video ref={videoRef} className="w-full h-full object-contain" onClick={togglePlay} />
 
       <div className={cn(
@@ -846,81 +775,68 @@ function ChannelDashboard({ channels, onSelectChannel, allChannels, recents, isC
   }
 
   return (
-    <div className='w-full h-full bg-background flex flex-col'>
-        <div className="p-4 border-b sticky top-0 bg-background z-10">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input 
-                    placeholder="Search all channels..." 
-                    className="pl-10 h-12 text-lg" 
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                />
-            </div>
-        </div>
-      <ScrollArea className="h-full flex-1">
-        <div className="p-4 space-y-8">
-            {isClient && recentlyWatchedChannels.length > 0 && !filter && (
-                <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">Recently Watched</h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
-                        {recentlyWatchedChannels.map((channel, index) => (
-                          <Card 
-                            key={`${channel.url}-${index}-recent`}
-                            className="overflow-hidden cursor-pointer group hover:border-primary transition-all"
-                            onClick={() => onSelectChannel(channel)}
-                          >
-                            <CardContent className="p-0 flex flex-col items-center justify-center aspect-square relative">
-                               <Image
-                                  src={channel.logo || `https://placehold.co/150x150/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
-                                  alt={channel.name}
-                                  width={150}
-                                  height={150}
-                                  className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                                  unoptimized
-                                />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                              <div className="absolute bottom-0 left-0 right-0 p-2">
-                                 <h3 className="text-white font-bold text-sm truncate">{channel.name}</h3>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                    </div>
-                </div>
-            )}
-          {Object.entries(groupedChannels).map(([groupName, groupChannels]) => (
-            <div key={groupName}>
-              <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">{groupName}</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
-                {groupChannels.map((channel, index) => (
-                  <Card 
-                    key={`${channel.url}-${index}`}
-                    className="overflow-hidden cursor-pointer group hover:border-primary transition-all"
-                    onClick={() => onSelectChannel(channel)}
-                  >
-                    <CardContent className="p-0 flex flex-col items-center justify-center aspect-square relative">
-                      <Image
-                        src={channel.logo || `https://placehold.co/150x150/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
-                        alt={channel.name}
-                        width={150}
-                        height={150}
-                        className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                        unoptimized
-                        />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-2">
-                         <h3 className="text-white font-bold text-sm truncate">{channel.name}</h3>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+    <ScrollArea className="h-full">
+      <div className="p-4 space-y-8">
+          {isClient && recentlyWatchedChannels.length > 0 && (
+              <div>
+                  <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">Recently Watched</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+                      {recentlyWatchedChannels.map((channel, index) => (
+                        <Card 
+                          key={`${channel.url}-${index}-recent`}
+                          className="overflow-hidden cursor-pointer group hover:border-primary transition-all"
+                          onClick={() => onSelectChannel(channel)}
+                        >
+                          <CardContent className="p-0 flex flex-col items-center justify-center aspect-square relative">
+                             <Image
+                                src={channel.logo || `https://placehold.co/150x150/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
+                                alt={channel.name}
+                                width={150}
+                                height={150}
+                                className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                                unoptimized
+                              />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                            <div className="absolute bottom-0 left-0 right-0 p-2">
+                               <h3 className="text-white font-bold text-sm truncate">{channel.name}</h3>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
               </div>
+          )}
+        {Object.entries(groupedChannels).map(([groupName, groupChannels]) => (
+          <div key={groupName}>
+            <h2 className="text-2xl font-bold tracking-tight text-foreground mb-4 capitalize">{groupName}</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+              {groupChannels.map((channel, index) => (
+                <Card 
+                  key={`${channel.url}-${index}`}
+                  className="overflow-hidden cursor-pointer group hover:border-primary transition-all"
+                  onClick={() => onSelectChannel(channel)}
+                >
+                  <CardContent className="p-0 flex flex-col items-center justify-center aspect-square relative">
+                    <Image
+                      src={channel.logo || `https://placehold.co/150x150/1A1A1A/F0F8FF.png?text=${channel.name.charAt(0)}`}
+                      alt={channel.name}
+                      width={150}
+                      height={150}
+                      className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                      unoptimized
+                      />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-2">
+                       <h3 className="text-white font-bold text-sm truncate">{channel.name}</h3>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-          ))}
-        </div>
-      </ScrollArea>
-    </div>
+          </div>
+        ))}
+      </div>
+    </ScrollArea>
   );
 }
 

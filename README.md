@@ -1,25 +1,27 @@
-# StreamWeaver IPTV Player
+# Next.js + Tailwind CSS Example
 
-Welcome to StreamWeaver, a modern and feature-rich IPTV player built with Next.js and Tailwind CSS.
+This example shows how to use [Tailwind CSS](https://tailwindcss.com/) (v3.0) with Next.js. It follows the steps outlined in the official [Tailwind CSS guide](https://tailwindcss.com/docs/guides/nextjs).
 
-This application allows you to stream M3U playlists, manage your favorite channels, and enjoy a smooth viewing experience.
+## Deploy your own
 
-## Getting Started
+Deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=next-example) or preview live with [StackBlitz](https://stackblitz.com/github/vercel/next.js/tree/canary/examples/with-tailwindcss)
 
-To run the application on your local machine, follow these steps:
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/git/external?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-tailwindcss&project-name=with-tailwindcss&repository-name=with-tailwindcss)
 
-1.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
+## How to use
 
-2.  **Run the development server:**
-    ```bash
-    npm run dev
-    ```
+Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init), [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/), or [pnpm](https://pnpm.io) to bootstrap the example:
 
-3.  Open [http://localhost:9002](http://localhost:9002) with your browser to see the result.
+```bash
+npx create-next-app --example with-tailwindcss with-tailwindcss-app
+```
 
-## User Guide
+```bash
+yarn create next-app --example with-tailwindcss with-tailwindcss-app
+```
 
-For detailed instructions on how to use all the features of the application, please see the **[User Guide](./USER_GUIDE.md)**.
+```bash
+pnpm create next-app --example with-tailwindcss with-tailwindcss-app
+```
+
+Deploy it to the cloud with [Vercel](https://vercel.com/new?utm_source=github&utm_medium=readme&utm_campaign=next-example) ([Documentation](https://nextjs.org/docs/deployment)).

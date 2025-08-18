@@ -20,7 +20,7 @@ const loadConfig = (): AppConfig => {
   return {};
 };
 
-const SAMPLE_PLAYLIST_URL = 'https://iptv-org.github.io/iptv/countries/in.m3u';
+const SAMPLE_PLAYLIST_URL = 'https://iptv-org.github.io/iptv/countries/us.m3u';
 
 export default async function Home() {
   const config = loadConfig();
