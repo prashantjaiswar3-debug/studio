@@ -572,8 +572,9 @@ function VideoPlayer({ channel }: { channel: Channel }) {
         });
         hls.on(Hls.Events.ERROR, (event, data) => {
             if (data.fatal) {
-                console.error("HLS.js fatal error:", data);
-                setError(`Playback error: ${data.details}`);
+                const errorDetails = data.details || 'Unknown HLS error';
+                console.error(`HLS.js fatal error: ${errorDetails}`, data);
+                setError(`Playback error: ${errorDetails}`);
                 switch(data.type) {
                     case Hls.ErrorTypes.NETWORK_ERROR:
                         console.error("Fatal network error encountered, trying to recover");
@@ -980,3 +981,5 @@ function EpgView({ channels }: { channels: Channel[] }) {
       </div>
   );
 }
+
+    
