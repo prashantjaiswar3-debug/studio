@@ -94,31 +94,36 @@ export function StreamWeaverPlayer({
     setIsClient(true);
   }, []);
 
+  const showToast = React.useCallback((options: { variant?: 'destructive', title: string, description?: string }) => {
+    toast(options);
+  }, [toast]);
+
   React.useEffect(() => {
     if (initialError) {
-      toast({
+      showToast({
         variant: 'destructive',
         title: 'Failed to load initial playlist',
         description: initialError,
       });
     }
-    
+
     if (isClient && lastM3uContent && initialChannels.length === 0) {
       const loadSavedPlaylist = async () => {
         setIsLoading(true);
         const result = await parseAndCheckM3U(lastM3uContent);
         if (result.success) {
           setChannels(result.channels);
-          toast({ title: 'Loaded saved playlist from your browser' });
+          showToast({ title: 'Loaded saved playlist from your browser' });
         } else {
-          toast({ variant: 'destructive', title: 'Error loading saved playlist', description: result.error });
+          showToast({ variant: 'destructive', title: 'Error loading saved playlist', description: result.error });
           setLastM3uContent(null);
         }
         setIsLoading(false);
       }
       loadSavedPlaylist();
     }
-  }, [initialError, toast, lastM3uContent, setLastM3uContent, initialChannels.length, isClient]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialError, isClient, lastM3uContent, setLastM3uContent, showToast]);
   
   const handleSelectChannel = (channel: Channel) => {
     setSelectedChannel(channel);
@@ -138,9 +143,9 @@ export function StreamWeaverPlayer({
       setChannels(result.channels);
       // We can't save the content from URL due to CORS, so we clear the local M3U
       setLastM3uContent(null);
-      toast({ title: 'Playlist loaded successfully', description: `${result.channels.length} channels found.` });
+      showToast({ title: 'Playlist loaded successfully', description: `${result.channels.length} channels found.` });
     } else {
-      toast({ variant: 'destructive', title: 'Error loading playlist', description: result.error });
+      showToast({ variant: 'destructive', title: 'Error loading playlist', description: result.error });
       setChannels([]);
     }
     setIsLoading(false);
@@ -158,9 +163,9 @@ export function StreamWeaverPlayer({
       const result = await parseAndCheckM3U(content);
       if (result.success) {
         setChannels(result.channels);
-        toast({ title: 'Playlist loaded and saved locally', description: `${result.channels.length} channels found.` });
+        showToast({ title: 'Playlist loaded and saved locally', description: `${result.channels.length} channels found.` });
       } else {
-        toast({ variant: 'destructive', title: 'Error parsing file', description: result.error });
+        showToast({ variant: 'destructive', title: 'Error parsing file', description: result.error });
         setChannels([]);
         setLastM3uContent(null);
       }
@@ -178,9 +183,9 @@ export function StreamWeaverPlayer({
     if (result.success) {
       setChannels(result.channels);
       setLastM3uContent(null);
-      toast({ title: message });
+      showToast({ title: message });
     } else {
-      toast({ variant: 'destructive', title: `Error loading ${message.toLowerCase()}`, description: result.error });
+      showToast({ variant: 'destructive', title: `Error loading ${message.toLowerCase()}`, description: result.error });
       setChannels([]);
     }
     setIsLoading(false);
@@ -981,5 +986,3 @@ function EpgView({ channels }: { channels: Channel[] }) {
       </div>
   );
 }
-
-    
