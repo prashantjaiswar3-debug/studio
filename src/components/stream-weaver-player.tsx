@@ -58,6 +58,7 @@ import { Card, CardContent } from './ui/card';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import Hls from 'hls.js';
 
 type SortOption = 'default' | 'name-asc' | 'name-desc';
 type ViewMode = 'dashboard' | 'epg';
@@ -506,20 +507,26 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   React.useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    
-    // Some browsers do not support HLS natively.
-    // In a real-world scenario, you would use a library like HLS.js
+
+    let hls: Hls | null = null;
+
     if (channel.url.includes('.m3u8')) {
-        if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.src = channel.url;
-        } else {
-          console.warn("HLS playback not supported by this browser without a library like HLS.js.");
-           video.src = channel.url;
-        }
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = channel.url;
+      } else if (Hls.isSupported()) {
+        hls = new Hls();
+        hls.loadSource(channel.url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => setIsPlaying(false));
+        });
+      } else {
+        console.error('HLS is not supported on this browser.');
+      }
     } else {
       video.src = channel.url;
     }
-    
+
     video.play().catch(e => {
         console.error("Autoplay was prevented:", e);
         setIsPlaying(false);
@@ -558,6 +565,9 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     document.addEventListener('fullscreenchange', onFullScreenChange);
     
     return () => {
+      if (hls) {
+        hls.destroy();
+      }
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
       video.removeEventListener('timeupdate', onTimeUpdate);
