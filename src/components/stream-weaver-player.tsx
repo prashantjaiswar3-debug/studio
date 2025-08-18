@@ -504,6 +504,41 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3000);
   }, []);
 
+  const togglePlay = React.useCallback(() => {
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play().catch(e => console.error("Play failed:", e));
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, []);
+
+  const toggleFullScreen = React.useCallback(() => {
+    const playerElement = playerRef.current;
+    if (!playerElement) return;
+
+    if (!document.fullscreenElement) {
+      playerElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  }, []);
+  
+  const toggleMute = React.useCallback(() => {
+    if(videoRef.current) {
+        videoRef.current.muted = !videoRef.current.muted;
+    }
+  }, []);
+
+  const handleSeek = React.useCallback((seconds: number) => {
+    if (videoRef.current && duration && isFinite(duration)) {
+        videoRef.current.currentTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + seconds));
+    }
+  }, [duration]);
+
   React.useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -533,7 +568,6 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     });
 
     handleMouseMove();
-
 
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
@@ -586,15 +620,61 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     }
   }, [playbackRate]);
 
-  const togglePlay = () => {
-    if (videoRef.current) {
-      if (videoRef.current.paused) {
-        videoRef.current.play().catch(e => console.error("Play failed:", e));
-      } else {
-        videoRef.current.pause();
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore shortcuts if a text input is focused
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
       }
-    }
-  };
+
+      const playerFocused = playerRef.current?.contains(document.activeElement);
+      if(!playerFocused && e.key !== 'f') { // Allow fullscreen toggle globally
+          // return;
+      }
+      
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'f':
+          e.preventDefault();
+          toggleFullScreen();
+          break;
+        case 'm':
+          e.preventDefault();
+          toggleMute();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          handleSeek(-10);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          handleSeek(10);
+          break;
+        case 'ArrowUp':
+            e.preventDefault();
+            if (videoRef.current) {
+              const newVolume = Math.min(1, videoRef.current.volume + 0.1);
+              videoRef.current.volume = newVolume;
+            }
+            break;
+        case 'ArrowDown':
+            e.preventDefault();
+            if (videoRef.current) {
+              const newVolume = Math.max(0, videoRef.current.volume - 0.1);
+              videoRef.current.volume = newVolume;
+            }
+            break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [togglePlay, toggleFullScreen, toggleMute, handleSeek]);
 
   const handleVolumeChange = (value: number[]) => {
     if (videoRef.current) {
@@ -603,34 +683,12 @@ function VideoPlayer({ channel }: { channel: Channel }) {
         videoRef.current.muted = newVolume === 0;
     }
   }
-  const toggleMute = () => {
-    if(videoRef.current) {
-        videoRef.current.muted = !videoRef.current.muted;
-    }
-  }
-  const toggleFullScreen = () => {
-    const playerElement = playerRef.current;
-    if (!playerElement) return;
 
-    if (!isFullScreen) {
-      playerElement.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-      });
-    } else {
-      document.exitFullscreen();
-    }
-  };
    const seek = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     if (!videoRef.current || !duration || !isFinite(duration)) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const seekTime = ((e.clientX - rect.left) / rect.width) * duration;
     videoRef.current.currentTime = seekTime;
-  };
-  
-  const handleSeek = (seconds: number) => {
-    if (videoRef.current && duration && isFinite(duration)) {
-        videoRef.current.currentTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + seconds));
-    }
   };
   
   const togglePip = async () => {
@@ -649,7 +707,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   const isLiveStream = !duration || !isFinite(duration);
 
   return (
-    <div ref={playerRef} className="w-full h-full relative bg-black" onMouseMove={handleMouseMove}>
+    <div ref={playerRef} className="w-full h-full relative bg-black" onMouseMove={handleMouseMove} tabIndex={0}>
       <video ref={videoRef} className="w-full h-full object-contain" onClick={togglePlay} />
 
       <div className={cn(
