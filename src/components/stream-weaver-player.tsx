@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { Channel } from '@/lib/m3u-parser';
@@ -30,6 +31,7 @@ import {
   History,
   EyeOff,
   Eye,
+  AlertTriangle,
 } from 'lucide-react';
 import Image from 'next/image';
 import * as React from 'react';
@@ -59,7 +61,6 @@ import { Card, CardContent } from './ui/card';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { Skeleton } from './ui/skeleton';
 
 type SortOption = 'default' | 'name-asc' | 'name-desc';
 type ViewMode = 'dashboard' | 'epg';
@@ -105,7 +106,7 @@ export function StreamWeaverPlayer({
       });
     }
     
-    if (lastM3uContent && initialChannels.length === 0) {
+    if (isClient && lastM3uContent && initialChannels.length === 0) {
       const loadSavedPlaylist = async () => {
         setIsLoading(true);
         const result = await parseAndCheckM3U(lastM3uContent);
@@ -120,7 +121,7 @@ export function StreamWeaverPlayer({
       }
       loadSavedPlaylist();
     }
-  }, [initialError, toast, lastM3uContent, setLastM3uContent, initialChannels.length]);
+  }, [initialError, toast, lastM3uContent, setLastM3uContent, initialChannels.length, isClient]);
   
   const handleSelectChannel = (channel: Channel) => {
     setSelectedChannel(channel);
@@ -532,6 +533,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   const [currentTime, setCurrentTime] = React.useState(0);
   const [playbackRate, setPlaybackRate] = React.useState(1);
   const controlsTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
 
   const handleMouseMove = React.useCallback(() => {
     setShowControls(true);
@@ -547,6 +549,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
 
     const loadVideo = async () => {
         try {
+            setError(null);
             if (channel.url.includes('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                   video.src = channel.url;
@@ -588,12 +591,38 @@ function VideoPlayer({ channel }: { channel: Channel }) {
       setIsMuted(video.muted);
     };
     const onFullScreenChange = () => setIsFullScreen(!!document.fullscreenElement);
+    const onError = (e: Event) => {
+        const videoElement = e.target as HTMLVideoElement;
+        const mediaError = videoElement.error;
+        let errorMessage = 'An unknown error occurred.';
+        if (mediaError) {
+          switch (mediaError.code) {
+            case mediaError.MEDIA_ERR_ABORTED:
+              errorMessage = 'The video playback was aborted.';
+              break;
+            case mediaError.MEDIA_ERR_NETWORK:
+              errorMessage = 'A network error caused the video download to fail.';
+              break;
+            case mediaError.MEDIA_ERR_DECODE:
+              errorMessage = 'The video playback was aborted due to a corruption problem or because the video used features your browser did not support.';
+              break;
+            case mediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+              errorMessage = 'The video could not be loaded, either because the server or network failed or because the format is not supported.';
+              break;
+            default:
+              errorMessage = 'An unknown error occurred.';
+              break;
+          }
+        }
+        setError(errorMessage);
+    }
 
     video.addEventListener('play', onPlay);
     video.addEventListener('pause', onPause);
     video.addEventListener('timeupdate', onTimeUpdate);
     video.addEventListener('durationchange', onDurationChange);
     video.addEventListener('volumechange', onVolumeChange);
+    video.addEventListener('error', onError);
     document.addEventListener('fullscreenchange', onFullScreenChange);
     
     return () => {
@@ -602,6 +631,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
       video.removeEventListener('timeupdate', onTimeUpdate);
       video.removeEventListener('durationchange', onDurationChange);
       video.removeEventListener('volumechange', onVolumeChange);
+      video.removeEventListener('error', onError);
       document.removeEventListener('fullscreenchange', onFullScreenChange);
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
@@ -616,7 +646,7 @@ function VideoPlayer({ channel }: { channel: Channel }) {
   }, [playbackRate]);
 
   const togglePlay = () => {
-      if (!videoRef.current) return;
+      if (!videoRef.current || error) return;
       if (videoRef.current.paused) {
           videoRef.current.play().catch(e => console.error("Play failed:", e));
       } else {
@@ -680,9 +710,17 @@ function VideoPlayer({ channel }: { channel: Channel }) {
     <div ref={playerRef} className="w-full h-full relative group/player bg-black" onMouseMove={handleMouseMove}>
       <video ref={videoRef} className="w-full h-full object-contain" onClick={togglePlay} />
 
+      {error && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white p-4">
+          <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
+          <h3 className="text-xl font-bold mb-2">Error Loading Channel</h3>
+          <p className="text-center text-muted-foreground">{error}</p>
+        </div>
+      )}
+
       <div className={cn(
           "absolute inset-0 bg-gradient-to-t from-black/50 to-transparent transition-opacity duration-300", 
-          showControls ? "opacity-100" : "opacity-0", 
+          showControls && !error ? "opacity-100" : "opacity-0", 
           "group-hover/player:opacity-100"
         )}
       >
@@ -985,7 +1023,3 @@ function EpgView({ channels }: { channels: Channel[] }) {
       </div>
   );
 }
-
-    
-
-    
