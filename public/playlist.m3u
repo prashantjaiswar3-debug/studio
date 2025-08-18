@@ -1,0 +1,23 @@
+#EXTM3U
+
+#EXTINF:-1 tvg-id="1.us" tvg-name="1" tvg-logo="https://i.imgur.com/w9JtE47.png" group-title="General",1
+https://cbs-zixi.b-cdn.net/cbs-zixi/cbs-zixi.isml/cbs-zixi.m3u8
+
+#EXTINF:-1 tvg-id="2.us" tvg-name="2" tvg-logo="https://i.imgur.com/w9JtE47.png" group-title="General",2
+https://abc-zixi.b-cdn.net/abc-zixi/abc-zixi.isml/abc-zixi.m3u8
+
+#EXTINF:-1 tvg-id="3.us" tvg-name="3" tvg-logo="https://i.imgur.com/w9JtE47.png" group-title="General",3
+https://nbc-zixi.b-cdn.net/nbc-zixi/nbc-zixi.isml/nbc-zixi.m3u8
+
+#EXTINF:-1 tvg-id="4.us" tvg-name="4" tvg-logo="https://i.imgur.com/w9JtE47.png" group-title="News",News 1
+https://newsmax-zixi.b-cdn.net/newsmax-zixi/newsmax-zixi.isml/newsmax-zixi.m3u8
+
+#EXTINF:-1 tvg-id="5.us" tvg-name="5" tvg-logo="https://i.imgur.com/w9JtE47.png" group-title="News",News 2
+https://live.ft.com/live/master.m3u8
+
+#EXTINF:-1 tvg-id="6.us" tvg-name="6" tvg-logo="https://i.imgur.com/w9JtE47.png" group-title="Entertainment",Entertainment 1
+https://rakuten-rakutentv01-us.amagi.tv/playlist.m3u8
+
+#EXTINF:-1 tvg-id="7.us" tvg-name="7" tvg-logo="https://i.imgur.com/w9JtE47.png" group-title="Entertainment",Entertainment 2
+https://plex-roku.amagi.tv/playlist.m3u8
+
