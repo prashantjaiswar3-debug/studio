@@ -10,7 +10,7 @@ interface AppConfig {
 
 const loadConfig = (): AppConfig => {
   try {
-    const configPath = path.join(process.cwd(), 'streamweaver.config.json');
+    const configPath = path.join(process.cwd(), 'src', 'streamweaver.config.json');
     if (fs.existsSync(configPath)) {
       const configFile = fs.readFileSync(configPath, 'utf-8');
       return JSON.parse(configFile);
