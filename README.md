@@ -56,7 +56,7 @@ This method is more stable and reliable for regular use. The server will keep ru
     ```
 
 3.  **Open the application:**
-    Open [http://localhost:9002](http://localhost:9002) in your browser to use the app. The server will run until you manually stop it (by pressing `Ctrl+C` in the terminal).
+    Open [http://localhost:3000](http://localhost:3000) in your browser to use the app. The server will run until you manually stop it (by pressing `Ctrl+C` in the terminal).
 
 ### Option 2: Development Mode (For Developers)
 
@@ -68,7 +68,7 @@ This method is best if you are actively editing the code, as it automatically re
     ```
 
 2.  **Open the application:**
-    Open [http://localhost:9002](http://localhost:9002) with your browser to see the result.
+    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 ## How to Use
 
