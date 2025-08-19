@@ -21,7 +21,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 You need to have [Node.js](https://nodejs.org/) (version 18 or later) and [npm](https://www.npmjs.com/) installed on your computer.
 
-### Installation & Running
+### Installation
 
 1.  **Clone the repository:**
     ```bash
@@ -30,18 +30,44 @@ You need to have [Node.js](https://nodejs.org/) (version 18 or later) and [npm](
     ```
 
 2.  **Install dependencies:**
-    This command will install all the necessary packages for the application.
+    This command will install all the necessary packages for the application. It only needs to be run once.
     ```bash
     npm install
     ```
 
-3.  **Run the development server:**
-    This will start the application on your local machine.
+## How to Run the Application
+
+You can run the application in two ways: **Development Mode** (for making changes) or **Production Mode** (for stable, everyday use).
+
+### Option 1: Production Mode (Recommended for Stable Use)
+
+This method is more stable and reliable for regular use. The server will keep running without interruption.
+
+1.  **Build the application:**
+    This command compiles and optimizes the app. You only need to run this once, or after you make code changes.
+    ```bash
+    npm run build
+    ```
+
+2.  **Start the production server:**
+    This starts a stable, local server.
+    ```bash
+    npm run start
+    ```
+
+3.  **Open the application:**
+    Open [http://localhost:9002](http://localhost:9002) in your browser to use the app. The server will run until you manually stop it (by pressing `Ctrl+C` in the terminal).
+
+### Option 2: Development Mode (For Developers)
+
+This method is best if you are actively editing the code, as it automatically reflects your changes.
+
+1.  **Run the development server:**
     ```bash
     npm run dev
     ```
 
-4.  **Open the application:**
+2.  **Open the application:**
     Open [http://localhost:9002](http://localhost:9002) with your browser to see the result.
 
 ## How to Use
