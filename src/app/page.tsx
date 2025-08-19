@@ -1,17 +1,23 @@
 import { fetchAndParseM3U } from '@/app/actions';
 import { StreamWeaverPlayer } from '@/components/stream-weaver-player';
-import { Channel } from '@/lib/m3u-parser';
-import { getConfig } from '@/lib/config';
+import type { Channel } from '@/lib/m3u-parser';
+
+// Default playlists are now managed here.
+const defaultPlaylistUrls = [
+  "https://iptv-org.github.io/iptv/languages/hin.m3u",
+  "https://iptv-org.github.io/iptv/languages/bho.m3u",
+  "https://iptv-org.github.io/iptv/countries/us.m3u",
+  "https://iptv-org.github.io/iptv/countries/gb.m3u"
+];
+
+const samplePlaylistUrl = 'https://iptv-org.github.io/iptv/index.m3u';
 
 export default async function Home() {
-  const config = getConfig();
-  const playlistUrls = config.defaultPlaylistUrls || [];
-  
   let allChannels: Channel[] = [];
   let errorMessages: string[] = [];
 
-  if (playlistUrls.length > 0) {
-      for (const url of playlistUrls) {
+  if (defaultPlaylistUrls.length > 0) {
+      for (const url of defaultPlaylistUrls) {
           const result = await fetchAndParseM3U(url);
           if (result.success) {
               allChannels = allChannels.concat(result.channels);
@@ -20,7 +26,7 @@ export default async function Home() {
           }
       }
   } else {
-      errorMessages.push('Could not load any default remote playlists. Please provide a playlist URL.');
+      errorMessages.push('No default playlists are configured. Please provide a playlist URL.');
   }
   
   // Remove duplicate channels by URL
@@ -30,8 +36,8 @@ export default async function Home() {
     <StreamWeaverPlayer
       initialChannels={uniqueChannels}
       initialError={errorMessages.length > 0 ? errorMessages.join('; ') : undefined}
-      samplePlaylistUrl={'https://iptv-org.github.io/iptv/index.m3u'}
-      configPlaylistUrl={config.defaultPlaylistUrls.length > 0 ? config.defaultPlaylistUrls[0] : undefined}
+      samplePlaylistUrl={samplePlaylistUrl}
+      configPlaylistUrl={defaultPlaylistUrls.length > 0 ? defaultPlaylistUrls[0] : undefined}
     />
   );
 }

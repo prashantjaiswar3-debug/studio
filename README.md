@@ -11,7 +11,7 @@ StreamWeaver is a sleek, modern IPTV player built with Next.js and Tailwind CSS.
 - **Favorites & Recents**: Mark your favorite channels and quickly access recently watched streams.
 - **Modern Player**: A clean and intuitive video player with standard controls.
 - **Responsive Design**: Works on both desktop and mobile devices.
-- **Customizable**: Configure default playlists via a simple JSON file.
+- **Pre-configured Channels**: Comes with Hindi, Bhojpuri, and English channels loaded by default.
 
 ## Getting Started
 
@@ -74,29 +74,14 @@ This method is best if you are actively editing the code, as it automatically re
 
 ### Loading a Playlist
 
-There are three ways to load a playlist:
+There are two primary ways to load a playlist:
 
 1.  **From a URL**: Paste the URL of an M3U playlist into the input field in the sidebar and click "Load from URL".
 2.  **From a File**: Click the "Upload M3U File" button to select and load a playlist from your computer. This playlist will be saved in your browser's local storage for future sessions.
-3.  **From Configuration**: Set up default playlists by editing the `streamweaver.config.json` file.
 
 ### Customizing Default Playlists
 
-You can configure the application to load specific playlists by default.
-
-1.  Open the `streamweaver.config.json` file in the project's root directory.
-2.  Add an array of M3U URLs to the `defaultPlaylistUrls` key:
-
-    ```json
-    {
-      "defaultPlaylistUrls": [
-        "https://iptv-org.github.io/iptv/countries/us.m3u",
-        "https://iptv-org.github.io/iptv/countries/ca.m3u"
-      ]
-    }
-    ```
-
-The application will fetch and merge these playlists on startup.
+The default playlists (Hindi, Bhojpuri, US, UK) are configured directly in the `src/app/page.tsx` file. To change them, open the file and modify the `defaultPlaylistUrls` array.
 
 ## Built With
 
