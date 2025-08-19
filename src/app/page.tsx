@@ -1,29 +1,16 @@
 import { fetchAndParseM3U } from '@/app/actions';
 import { StreamWeaverPlayer } from '@/components/stream-weaver-player';
 import { Channel } from '@/lib/m3u-parser';
-import fs from 'fs';
-import path from 'path';
 
-interface AppConfig {
-  defaultPlaylistUrls?: string[];
-}
-
-const loadConfig = (): AppConfig => {
-  try {
-    const configPath = path.join(process.cwd(), 'src', 'streamweaver.config.json');
-    if (fs.existsSync(configPath)) {
-      const configFile = fs.readFileSync(configPath, 'utf-8');
-      return JSON.parse(configFile);
-    }
-  } catch (error) {
-    console.error('Error loading streamweaver.config.json:', error);
-  }
-  return {};
-};
+const defaultPlaylistUrls = [
+    "https://iptv-org.github.io/iptv/languages/hin.m3u",
+    "https://iptv-org.github.io/iptv/languages/bho.m3u",
+    "https://iptv-org.github.io/iptv/countries/us.m3u",
+    "https://iptv-org.github.io/iptv/countries/gb.m3u"
+];
 
 export default async function Home() {
-  const config = loadConfig();
-  const playlistUrls = config.defaultPlaylistUrls || [];
+  const playlistUrls = defaultPlaylistUrls;
   
   let allChannels: Channel[] = [];
   let errorMessages: string[] = [];
@@ -44,13 +31,12 @@ export default async function Home() {
   // Remove duplicate channels by URL
   const uniqueChannels = Array.from(new Map(allChannels.map(channel => [channel.url, channel])).values());
 
-
   return (
     <StreamWeaverPlayer
       initialChannels={uniqueChannels}
       initialError={errorMessages.length > 0 ? errorMessages.join('; ') : undefined}
       samplePlaylistUrl={'https://iptv-org.github.io/iptv/index.m3u'}
-      configPlaylistUrl={config.defaultPlaylistUrls ? config.defaultPlaylistUrls[0] : undefined}
+      configPlaylistUrl={defaultPlaylistUrls.length > 0 ? defaultPlaylistUrls[0] : undefined}
     />
   );
 }
