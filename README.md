@@ -37,7 +37,7 @@ You need to have [Node.js](https://nodejs.org/) (version 18 or later) and [npm](
 
 ## How to Run the Application
 
-You can run the application in two ways: **Development Mode** (for making changes) or **Production Mode** (for stable, everyday use).
+You can run the application in two ways: **Production Mode** (for stable, everyday use) or **Development Mode** (for making changes).
 
 ### Option 1: Production Mode (Recommended for Stable Use)
 
