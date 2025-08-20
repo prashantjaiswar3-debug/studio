@@ -6,8 +6,6 @@ import type { Channel } from '@/lib/m3u-parser';
 const defaultPlaylistUrls = [
   "https://iptv-org.github.io/iptv/languages/hin.m3u",
   "https://iptv-org.github.io/iptv/languages/bho.m3u",
-  "https://iptv-org.github.io/iptv/countries/us.m3u",
-  "https://iptv-org.github.io/iptv/countries/gb.m3u"
 ];
 
 const samplePlaylistUrl = 'https://iptv-org.github.io/iptv/index.m3u';
